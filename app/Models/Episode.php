@@ -12,6 +12,10 @@ class Episode extends Model
     /** @use HasFactory<EpisodeFactory> */
     use HasFactory;
 
+    protected $table = 'episode';
+
+    protected $primaryKey = 'id_episode';
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -19,7 +23,7 @@ class Episode extends Model
     protected $keyType = 'int';
 
     protected $fillable = [
-        'id',
+        'id_episode',
         'name',
         'air_date',
         'episode',
@@ -27,6 +31,13 @@ class Episode extends Model
 
     public function characters(): BelongsToMany
     {
-        return $this->belongsToMany(Character::class);
+        return $this->belongsToMany(
+            Character::class,
+            'characters_episode',
+            'id_episode',
+            'id_character',
+            'id_episode',
+            'id_character'
+        );
     }
 }

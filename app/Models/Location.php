@@ -12,6 +12,10 @@ class Location extends Model
     /** @use HasFactory<LocationFactory> */
     use HasFactory;
 
+    protected $table = 'location';
+
+    protected $primaryKey = 'id_location';
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -19,7 +23,7 @@ class Location extends Model
     protected $keyType = 'int';
 
     protected $fillable = [
-        'id',
+        'id_location',
         'name',
         'type',
         'dimension',
@@ -27,11 +31,19 @@ class Location extends Model
 
     public function originCharacters(): HasMany
     {
-        return $this->hasMany(Character::class, 'origin_location_id');
+        return $this->hasMany(
+            Character::class,
+            'id_origin_location',
+            'id_location'
+        );
     }
 
     public function currentCharacters(): HasMany
     {
-        return $this->hasMany(Character::class, 'current_location_id');
+        return $this->hasMany(
+            Character::class,
+            'id_current_location',
+            'id_location'
+        );
     }
 }

@@ -13,6 +13,10 @@ class Character extends Model
     /** @use HasFactory<CharacterFactory> */
     use HasFactory;
 
+    protected $table = 'characters';
+
+    protected $primaryKey = 'id_character';
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -20,29 +24,44 @@ class Character extends Model
     protected $keyType = 'int';
 
     protected $fillable = [
-        'id',
+        'id_character',
         'name',
         'status',
         'species',
         'type',
         'gender',
         'image',
-        'origin_location_id',
-        'current_location_id',
+        'id_origin_location',
+        'id_current_location',
     ];
 
     public function origin(): BelongsTo
     {
-        return $this->belongsTo(Location::class, 'origin_location_id');
+        return $this->belongsTo(
+            Location::class,
+            'id_origin_location',
+            'id_location'
+        );
     }
 
     public function currentLocation(): BelongsTo
     {
-        return $this->belongsTo(Location::class, 'current_location_id');
+        return $this->belongsTo(
+            Location::class,
+            'id_current_location',
+            'id_location'
+        );
     }
 
     public function episodes(): BelongsToMany
     {
-        return $this->belongsToMany(Episode::class);
+        return $this->belongsToMany(
+            Episode::class,
+            'characters_episode',
+            'id_character',
+            'id_episode',
+            'id_character',
+            'id_episode'
+        );
     }
 }

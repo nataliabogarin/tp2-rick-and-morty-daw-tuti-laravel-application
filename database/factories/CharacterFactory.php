@@ -19,15 +19,15 @@ class CharacterFactory extends Factory
     public function definition(): array
     {
         return [
-            'id' => fake()->unique()->numberBetween(1, 100000),
+            'id_character' => fake()->unique()->numberBetween(1, 100000),
             'name' => fake()->name(),
             'status' => fake()->randomElement(['Alive', 'Dead', 'unknown']),
             'species' => fake()->randomElement(['Human', 'Alien']),
             'type' => '',
             'gender' => fake()->randomElement(['Female', 'Male', 'Genderless', 'unknown']),
             'image' => 'https://example.com/character.jpg',
-            'origin_location_id' => Location::factory(),
-            'current_location_id' => Location::factory(),
+            'id_origin_location' => Location::factory(),
+            'id_current_location' => Location::factory(),
         ];
     }
 }

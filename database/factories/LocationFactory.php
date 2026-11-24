@@ -18,7 +18,7 @@ class LocationFactory extends Factory
     public function definition(): array
     {
         return [
-            'id' => fake()->unique()->numberBetween(1, 100000),
+            'id_location' => fake()->unique()->numberBetween(1, 100000),
             'name' => fake()->city(),
             'type' => fake()->randomElement(['Planet', 'Space station', 'Dimension']),
             'dimension' => fake()->word(),

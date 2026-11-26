@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -8,48 +9,71 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('locations', function (Blueprint $table): void {
-            $table->unsignedInteger('id')->primary();
+        // Tabla location
+        Schema::create('location', function (Blueprint $table): void {
+            $table->integer('id_location')->primary();
             $table->string('name', 150);
             $table->string('type', 100);
             $table->string('dimension', 150);
         });
 
+        // Tabla characters
         Schema::create('characters', function (Blueprint $table): void {
-            $table->unsignedInteger('id')->primary();
+            $table->integer('id_character')->primary();
             $table->string('name', 150);
             $table->string('status', 20);
             $table->string('species', 100);
             $table->string('type', 150);
             $table->string('gender', 20);
-            $table->string('image');
-            $table->unsignedInteger('origin_location_id')->nullable();
-            $table->unsignedInteger('current_location_id')->nullable();
-            $table->foreign('origin_location_id')->references('id')->on('locations')->nullOnDelete();
-            $table->foreign('current_location_id')->references('id')->on('locations')->nullOnDelete();
+            $table->string('image', 255);
+
+            // Claves foráneas de origen y ubicación actual
+            $table->integer('id_origin_location')->nullable();
+            $table->integer('id_current_location')->nullable();
+
+            $table->foreign('id_origin_location')
+                  ->references('id_location')
+                  ->on('location')
+                  ->nullOnDelete();
+
+           $table->foreign('id_current_location')
+                 ->references('id_location')
+                 ->on('location')
+                 ->nullOnDelete();
         });
 
-        Schema::create('episodes', function (Blueprint $table): void {
-            $table->unsignedInteger('id')->primary();
+        // Tabla episode
+        Schema::create('episode', function (Blueprint $table): void {
+            $table->integer('id_episode')->primary();
             $table->string('name', 150);
             $table->string('air_date', 50);
-            $table->string('episode', 10)->index();
+            $table->string('episode', 10);
         });
 
-        Schema::create('character_episode', function (Blueprint $table): void {
-            $table->unsignedInteger('character_id');
-            $table->unsignedInteger('episode_id');
-            $table->foreign('character_id')->references('id')->on('characters')->cascadeOnDelete();
-            $table->foreign('episode_id')->references('id')->on('episodes')->cascadeOnDelete();
-            $table->primary(['character_id', 'episode_id']);
+        // Tabla intermedia characters_episode
+        Schema::create('characters_episode', function (Blueprint $table): void {
+            $table->integer('id_character');
+            $table->integer('id_episode');
+
+            $table->primary(['id_character', 'id_episode']);
+
+            $table->foreign('id_character')
+                  ->references('id_character')
+                  ->on('characters')
+                  ->cascadeOnDelete();
+
+           $table->foreign('id_episode')
+                  ->references('id_episode')
+                  ->on('episode')
+                  ->cascadeOnDelete();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('character_episode');
-        Schema::dropIfExists('episodes');
+        Schema::dropIfExists('characters_episode');
+        Schema::dropIfExists('episode');
         Schema::dropIfExists('characters');
-        Schema::dropIfExists('locations');
+        Schema::dropIfExists('location');
     }
 };

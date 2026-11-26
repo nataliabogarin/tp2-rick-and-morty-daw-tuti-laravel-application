@@ -18,10 +18,10 @@ class EpisodeFactory extends Factory
     public function definition(): array
     {
         return [
-            'id' => fake()->unique()->numberBetween(1, 100000),
+            'id_episode' => fake()->unique()->numberBetween(1, 100000),
             'name' => fake()->sentence(3),
             'air_date' => fake()->date('F j, Y'),
-            'episode' => 'S01E'.fake()->unique()->numberBetween(1, 99),
+            'episode' => sprintf('S01E%02d', fake()->unique()->numberBetween(1, 99)),
         ];
     }
 }

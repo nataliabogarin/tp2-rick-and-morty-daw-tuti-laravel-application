@@ -12,8 +12,20 @@
                 <p>Especie: {{ $character->species }}</p>
                 <p>Estado: {{ $character->status }}</p>
 
-                <p>Ubicación de origen: {{ $character->originLocation->name ?? 'Desconocida' }}</p>
-                <p>Ubicación actual: {{ $character->currentLocation->name ?? 'Desconocida' }}</p>
+                <p>Ubicación de origen:
+                    @if($character->originLocation)
+                        <a href="{{ route('locations.show', $character->originLocation->id_location) }}">{{ $character->originLocation->name }}</a>
+                    @else
+                        Desconocida
+                    @endif
+                </p>
+                <p>Ubicación actual:
+                    @if($character->currentLocation)
+                        <a href="{{ route('locations.show', $character->currentLocation->id_location) }}">{{ $character->currentLocation->name }}</a>
+                    @else
+                        Desconocida
+                    @endif
+                </p>
                 <a href="{{ route('characters.show', ['id' => $character->id_character]) }}">Ver detalles: {{ $character->name }}</a>
                 <hr>
             </li>

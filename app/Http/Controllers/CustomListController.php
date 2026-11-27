@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomList;
-use App\Models\User; // <-- CAMBIO 1: Importamos tu modelo User
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,10 +12,11 @@ class CustomListController extends Controller
     // Muestra todas las listas del usuario autenticado
     public function index()
     {
-        /** @var User $user */ // <-- CAMBIO 2: Indicamos a VS Code que $user es App\Models\User
+        /** @var User $user */
         $user = Auth::user();
 
         $lists = $user->customLists()->withCount('items')->get();
+
         return view('listas.index', compact('lists'));
     }
 
@@ -27,7 +28,7 @@ class CustomListController extends Controller
             'type' => ['required', 'in:character,episode'],
         ]);
 
-        /** @var User $user */ // <-- CAMBIO 3: Mismo tipado al crear una lista nueva
+        /** @var User $user */
         $user = Auth::user();
 
         $user->customLists()->create($validated);
@@ -46,6 +47,21 @@ class CustomListController extends Controller
         return view('listas.show', compact('customList', 'elements'));
     }
 
+    // Renombra una lista. Solo se puede cambiar el nombre: el tipo queda fijo
+    // para no mezclar personajes y episodios que ya estén cargados
+    public function update(Request $request, CustomList $customList)
+    {
+        abort_if($customList->user_id !== Auth::id(), 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+        ]);
+
+        $customList->update(['name' => $validated['name']]);
+
+        return back()->with('success', 'Lista renombrada correctamente.');
+    }
+
     // Elimina una lista completa del usuario
     public function destroy(CustomList $customList)
     {
@@ -61,15 +77,23 @@ class CustomListController extends Controller
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
+        // Validamos que el elemento exista en la tabla que corresponde al tipo de la lista.
+        // Así una lista de personajes no puede recibir un episodio (ni un id inventado).
+        $tablaSegunTipo = $customList->type === 'character'
+            ? 'exists:characters,id_character'
+            : 'exists:episode,id_episode';
+
         $request->validate([
-            'item_id' => ['required', 'integer'],
+            'item_id' => ['required', 'integer', $tablaSegunTipo],
+        ], [
+            'item_id.exists' => 'El elemento no existe o no corresponde al tipo de esta lista.',
         ]);
 
         $item = $customList->items()->firstOrCreate([
             'item_id' => $request->item_id,
         ]);
 
-        if (!$item->wasRecentlyCreated) {
+        if (! $item->wasRecentlyCreated) {
             return back()->with('error', 'Ese elemento ya estaba agregado en esta lista.');
         }
 

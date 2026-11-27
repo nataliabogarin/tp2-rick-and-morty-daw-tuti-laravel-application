@@ -7,10 +7,12 @@
         <p><strong>Código:</strong> {{ $episode->episode }}</p>
         <p><strong>Fecha de emisión:</strong> {{ $episode->air_date }}</p>
         
-        <form action="{{ route('favorites.store', ['type' => 'episode', 'id' => $episode->id_episode]) }}" method="POST">
-            @csrf
-            <button type="submit" class="btn btn-primary">⭐ Guardar Episodio</button>
-        </form>
+        @auth
+            <form action="{{ route('favorites.store', ['type' => 'episode', 'id' => $episode->id_episode]) }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-primary">⭐ Guardar Episodio</button>
+            </form>
+        @endauth
     <hr>
  <br>
     <a href="{{ url()->previous()}} " >Volver a la página anterior </a>
@@ -20,7 +22,6 @@
     <ul>
         @forelse($episode->characters as $character)
             <li>
-                <!-- Si tienes su imagen y ruta de detalle -->
                 <a href="{{ route('characters.show', $character->id_character) }}">
                     {{ $character->name }}
                 </a>
@@ -39,6 +40,9 @@
     @if(session('error'))
         <p style="color: red;">{{ session('error') }}</p>
     @endif
+    @error('item_id')
+        <p style="color: red;">{{ $message }}</p>
+    @enderror
 
     @php
         $listasEpisodios = auth()->user()->customLists()->where('type', 'episode')->get();

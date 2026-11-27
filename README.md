@@ -1,58 +1,203 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Rick & Morty Explorer – Trabajo Práctico N.º 2
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Universidad Tecnológica Nacional – Facultad Regional Santa Fe**
+**Tecnicatura Universitaria en Tecnologías de la Información**
+**Desarrollo de Aplicaciones Web – 2026**
 
-## About Laravel
+## Descripción
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Aplicación web desarrollada con Laravel a partir de la base de datos construida en el Trabajo Práctico N.º 1. Permite explorar, consultar y organizar la información sobre personajes, episodios y ubicaciones del universo de *Rick and Morty*.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Este documento explica cómo instalar y ejecutar el proyecto en un entorno local de desarrollo.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Funcionalidades
 
-## Learning Laravel
+- **Explorador público:** listado y detalle de personajes, episodios y ubicaciones, con navegación entre sus relaciones.
+- **Registro y autenticación de usuarios:** registro, inicio y cierre de sesión, y recuperación de contraseña.
+- **Listas personalizadas:** disponibles para usuarios autenticados.
+  - Cada lista pertenece a un único usuario.
+  - Cada lista admite un único tipo de contenido: personajes o episodios.
+  - Un elemento no puede repetirse dentro de una misma lista.
+- **Funcionalidades adicionales:** favoritos, edición del perfil y administración de usuarios para el rol administrador.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Requisitos previos
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Herramienta | Versión | Verificación |
+|---|---|---|
+| PHP | 8.3 o superior | `php -v` |
+| Composer | 2.x | `composer -V` |
+| Base de datos | SQLite 3 o MySQL 8 | — |
+| Git | — | `git --version` |
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Con versiones de PHP anteriores a la 8.3, la instalación de dependencias falla.
 
-## Agentic Development
+Como alternativa, el proyecto puede ejecutarse con **Docker** y **Docker Compose**. Ese procedimiento se describe más abajo.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Instalación en entorno local
+
+### 1. Clonar el repositorio
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone <url-del-repositorio>
+cd tp2-rick-and-morty-daw-tuti-laravel-application
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Instalar las dependencias
 
-## Contributing
+```bash
+composer install
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Configurar el entorno
 
-## Code of Conduct
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 4. Configurar la base de datos
 
-## Security Vulnerabilities
+**Opción A – SQLite**
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Es la configuración por defecto de `.env.example`. Solo hay que crear el archivo de la base de datos:
 
-## License
+```bash
+touch database/database.sqlite
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**Opción B – MySQL**
+
+Crear una base de datos vacía y modificar estas variables en el archivo `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=rick_and_morty
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### 5. Ejecutar las migraciones y el seeder
+
+```bash
+php artisan migrate --seed
+```
+
+Este comando crea el esquema completo de la base de datos y un usuario administrador inicial.
+
+### 6. Cargar los datos de Rick and Morty
+
+```bash
+php artisan rick-morty:import
+```
+
+El comando obtiene ubicaciones, episodios y personajes de la API pública <https://rickandmortyapi.com> y los guarda conservando los identificadores originales. Requiere conexión a internet.
+
+Con la opción `--fresh` se eliminan los datos existentes del explorador antes de importar. Esta opción no afecta a los usuarios ni a sus listas.
+
+### 7. Iniciar el servidor de desarrollo
+
+```bash
+php artisan serve
+```
+
+La aplicación queda disponible en <http://localhost:8000>.
+
+## Instalación con Docker
+
+1. Crear el archivo `.env` a partir de `.env.example`.
+2. Configurar en `.env` la conexión al contenedor de base de datos:
+
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=db
+   DB_PORT=3306
+   DB_DATABASE=rick_and_morty
+   DB_USERNAME=laravel
+   DB_PASSWORD=laravel_local
+   ```
+
+3. Construir y levantar los contenedores, y preparar la aplicación:
+
+   ```bash
+   docker compose up -d --build
+   docker compose exec app php artisan key:generate
+   docker compose exec app php artisan migrate --seed
+   docker compose exec app php artisan rick-morty:import
+   ```
+
+La aplicación queda disponible en <http://localhost:8000>. Para detener los contenedores se utiliza `docker compose down`.
+
+## Usuario administrador
+
+El seeder crea el siguiente usuario de prueba:
+
+| Email | Contraseña |
+|---|---|
+| `admin@rickandmorty.test` | `admin1234` |
+
+## Recuperación de contraseña
+
+En el entorno local, la variable `MAIL_MAILER=log` hace que los correos no se envíen. El enlace de recuperación se registra en el archivo `storage/logs/laravel.log`.
+
+## Ejecución de pruebas
+
+```bash
+php artisan test
+```
+
+Las pruebas se ejecutan sobre una base de datos SQLite en memoria, según la configuración de `phpunit.xml`, por lo que no modifican la base de datos de desarrollo. Las respuestas de la API externa se simulan con `Http::fake()`.
+
+## Modelo de datos
+
+Tablas del Trabajo Práctico N.º 1:
+
+| Tabla | Clave primaria | Descripción |
+|---|---|---|
+| `location` | `id_location` | Ubicaciones |
+| `characters` | `id_character` | Personajes. Tienen referencias a su ubicación de origen y a su ubicación actual |
+| `episode` | `id_episode` | Episodios |
+| `characters_episode` | (`id_character`, `id_episode`) | Relación muchos a muchos entre personajes y episodios |
+
+Tablas incorporadas en el Trabajo Práctico N.º 2:
+
+| Tabla | Descripción |
+|---|---|
+| `users` | Usuarios registrados. Incluye el indicador `is_admin` |
+| `custom_lists` | Listas personalizadas. Tienen propietario, nombre y tipo (`character` o `episode`) |
+| `custom_list_items` | Elementos de cada lista. Tienen un índice único que impide duplicados |
+| `favorites` | Favoritos de cada usuario. Es una relación polimórfica |
+
+El script SQL original del Trabajo Práctico N.º 1 se conserva como referencia en `database/tp1/rick_and_morty.sql`.
+
+## Estructura del proyecto
+
+```
+app/Http/Controllers/      Controladores de la aplicación
+app/Models/                Modelos Eloquent
+app/Console/Commands/      Comando de importación de datos
+app/Policies/              Políticas de autorización
+database/migrations/       Migraciones del esquema
+database/seeders/          Carga inicial del usuario administrador
+resources/views/           Vistas Blade
+routes/web.php             Definición de rutas
+docs/uso-ia.md             Documentación del uso de Inteligencia Artificial
+```
+
+## Problemas frecuentes
+
+| Problema | Solución |
+|---|---|
+| No se encuentra `vendor/autoload.php` | Ejecutar `composer install`. |
+| Error de versión de PHP al instalar dependencias | Actualizar PHP a la versión 8.3 o superior. |
+| `No application encryption key has been specified` | Ejecutar `php artisan key:generate`. |
+| No existe el archivo de base de datos SQLite | Crear el archivo `database/database.sqlite`. |
+| El explorador no muestra resultados | Ejecutar `php artisan rick-morty:import`. |
+| Los cambios en `.env` no se aplican | Ejecutar `php artisan config:clear`. |
+
+## Integrantes
+
+- Natalia Bogarín
+- Claudio Laborda
+- Kareliz Pérez León

@@ -9,6 +9,17 @@
         <p style="color: green;"><strong>{{ session('success') }}</strong></p>
     @endif
 
+    <h3>Renombrar lista</h3>
+    <form action="{{ route('listas.update', $customList) }}" method="POST">
+        @csrf
+        @method('PUT')
+        <input type="text" name="name" value="{{ old('name', $customList->name) }}" required maxlength="100">
+        <button type="submit">Guardar nombre</button>
+        @error('name')
+            <p style="color: red;">{{ $message }}</p>
+        @enderror
+    </form>
+
     <hr>
 
     @if($elements->isEmpty())

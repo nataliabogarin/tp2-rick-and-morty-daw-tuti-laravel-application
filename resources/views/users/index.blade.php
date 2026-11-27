@@ -1,10 +1,12 @@
-@extends('layout.layout') {{-- O el nombre de tu layout principal --}}
+@extends('layout.layout')
 
 @section('contenido')
-<p>Valor de is_admin: {{ auth()->user()->is_admin ?? 'No definido' }}</p>
 <div class="container">
     <h1>Panel de Administración - Usuarios</h1>
 
+    @if (session('error'))
+        <div style="color: red;">{{ session('error') }}</div>
+    @endif
     @if (session('status'))
         <div class="alert alert-success" style="color: green;">
             {{ session('status') }}
@@ -39,5 +41,7 @@
             @endforeach
         </tbody>
     </table>
+
+    {{ $users->links() }}
 </div>
 @endsection

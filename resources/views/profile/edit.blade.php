@@ -9,6 +9,12 @@
             <a href="{{ route('users.index') }}">Panel de Administración</a>
         @endif
     @endauth
+    {{-- Mensaje que deja el AdminMiddleware cuando alguien sin permisos entra al panel --}}
+    @if (session('error'))
+        <div style="color: red; margin-bottom: 15px;">
+            {{ session('error') }}
+        </div>
+    @endif
     @if (session('status'))
         <div style="color: green; margin-bottom: 15px;">
             {{ session('status') }}

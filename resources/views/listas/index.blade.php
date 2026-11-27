@@ -33,7 +33,7 @@
                 <li>
                     <strong>{{ $list->name }}</strong>
                     ({{ $list->type === 'character' ? 'Personajes' : 'Episodios' }} — {{ $list->items_count }} elementos)
-                    | <a href="{{ route('listas.show', $list) }}">Ver contenido</a>
+                    | <a href="{{ route('listas.show', $list) }}">Ver contenido / renombrar</a>
                     <form action="{{ route('listas.destroy', $list) }}" method="POST" style="display:inline;">
                         @csrf
                         @method('DELETE')

@@ -32,3 +32,48 @@ body {
     display: block;
     margin: 20px auto;
 }
+
+/* Paginación (vista resources/views/partials/paginacion.blade.php) */
+.paginacion {
+    margin: 25px 0;
+    font-family: sans-serif;
+}
+
+.paginacion-info {
+    color: #4a5568;
+    font-size: 14px;
+}
+
+.paginacion ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    padding: 0;
+}
+
+.paginacion a,
+.paginacion span {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #2b6cb0;
+}
+
+.paginacion a:hover {
+    background-color: #ebf8ff;
+}
+
+/* Página en la que estamos parados */
+.paginacion .actual {
+    background-color: #3182ce;
+    border-color: #3182ce;
+    color: white;
+    font-weight: bold;
+}
+
+.paginacion .deshabilitado {
+    color: #a0aec0;
+}

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi App rick and morty</title>
+    <title>Rick & Morty Explorer</title>
 
     {{-- Vinculamos correctamente el archivo CSS externo desde la carpeta public --}}
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
@@ -19,9 +19,9 @@
         </a>
         
         <div style="display: flex; align-items: center; gap: 15px; height: 100%;">
-            <a href="{{ route('characters.index') ?? '#' }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Personajes</a>
-            <a href="{{ route('locations.index') ?? '#' }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Locaciones</a>
-            <a href="{{ route('episodes.index') ?? '#' }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Episodios</a>
+            <a href="{{ route('characters.index') }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Personajes</a>
+            <a href="{{ route('locations.index') }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Locaciones</a>
+            <a href="{{ route('episodes.index') }}" style="color: #e2e8f0; text-decoration: none; font-weight: 500;">Episodios</a>
             
            @auth
                 <a href="{{ route('listas.index') }}" style="color: #68d391; text-decoration: none; font-weight: bold;">📋 Mis Listas</a>
@@ -56,7 +56,6 @@
         @endguest
     </div>
 </nav>
-<!-- <p>Valor de is_admin: {{ auth()->user()->is_admin ?? 'No definido' }}</p> -->
 <main>
 @yield('contenido')
 </main>

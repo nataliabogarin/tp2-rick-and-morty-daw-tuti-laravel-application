@@ -25,6 +25,7 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
+
             return redirect()->intended('/')->with('success', '¡Bienvenido de vuelta!');
         }
 
@@ -45,7 +46,8 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'], // espera un campo password_confirmation
+            // 'confirmed' espera un campo password_confirmation. Usamos min:8 igual que en perfil y recuperación
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         // Gracias al cast 'password' => 'hashed' en tu modelo User, se cifra solo

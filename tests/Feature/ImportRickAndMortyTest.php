@@ -53,16 +53,16 @@ class ImportRickAndMortyTest extends TestCase
 
         $this->artisan('rick-morty:import')->assertSuccessful();
 
-        $this->assertDatabaseHas('locations', ['id' => 20]);
-        $this->assertDatabaseHas('episodes', ['id' => 1]);
+        $this->assertDatabaseHas('location', ['id_location' => 20]);
+        $this->assertDatabaseHas('episode', ['id_episode' => 1]);
         $this->assertDatabaseHas('characters', [
-            'id' => 1,
-            'origin_location_id' => 20,
-            'current_location_id' => 20,
+            'id_character' => 1,
+            'id_origin_location' => 20,
+            'id_current_location' => 20,
         ]);
-        $this->assertDatabaseHas('character_episode', [
-            'character_id' => 1,
-            'episode_id' => 1,
+        $this->assertDatabaseHas('characters_episode', [
+            'id_character' => 1,
+            'id_episode' => 1,
         ]);
         $this->assertSame('Earth (Replacement Dimension)', Character::findOrFail(1)->origin->name);
         $this->assertCount(1, Episode::findOrFail(1)->characters);

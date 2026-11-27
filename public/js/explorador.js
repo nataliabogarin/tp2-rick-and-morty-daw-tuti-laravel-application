@@ -91,7 +91,14 @@ if (listaPersonajes) {
         const datos = await respuesta.json();
 
         document.getElementById('panelDetalles').style.display = 'flex';
-        document.getElementById('charImg').src = datos.image;
+        const imagen = document.getElementById('charImg');
+
+        imagen.onerror = function () {
+           this.onerror = null;
+           this.src = this.dataset.fallback;
+        };
+
+        imagen.src = datos.image;
         document.getElementById('charName').textContent = datos.name;
 
         const estado = document.getElementById('charStatus');

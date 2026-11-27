@@ -38,7 +38,7 @@
                     <li>
                         @if($customList->type === 'character')
                             <a href="{{ route('characters.show', ['id' => $element->id_character]) }}">
-                                <img src="{{ $element->image }}" alt="" loading="lazy">{{ $element->name }}
+                                <img src="{{ $element->image }}" alt="" loading="lazy" onerror="this.onerror=null; this.src='{{ asset('images/personaje-sin-imagen.jpg') }}';">{{ $element->name }}
                             </a>
                             <form action="{{ route('listas.items.remove', [$customList, $element->id_character]) }}" method="POST" class="form-en-linea">
                                 @csrf

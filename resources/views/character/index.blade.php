@@ -13,7 +13,7 @@
                 {{-- Toda la card es clickeable: el link del nombre se "estira" sobre la card con CSS.
                      Los links de ubicación y el botón quedan por encima para seguir funcionando. --}}
                 <li class="tarjeta-personaje">
-                    <img src="{{ $character->image }}" alt="{{ $character->name }}" loading="lazy">
+                    <img src="{{ $character->image }}" alt="{{ $character->name }}" loading="lazy" onerror="this.onerror=null; this.src='{{ asset('images/personaje-sin-imagen.jpg') }}';">
                     <div class="cuerpo">
                         <h2><a href="{{ route('characters.show', ['id' => $character->id_character]) }}" class="enlace-tarjeta">{{ $character->name }}</a></h2>
                         <p><span class="badge {{ $character->status }}">{{ $character->status }}</span> {{ $character->species }}</p>

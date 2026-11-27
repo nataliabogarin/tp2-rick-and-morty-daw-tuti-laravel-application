@@ -99,7 +99,7 @@
             {{-- Panel derecho: empieza oculto y lo llena el JavaScript --}}
             <div class="panel-derecho oculto" id="panelDetalles">
                 <div class="foto">
-                    <img id="charImg" src="" alt="Foto del personaje">
+                    <img id="charImg" src="" alt="Foto del personaje" data-fallback="{{ asset('images/personaje-sin-imagen.jpg') }}">
                 </div>
                 <div class="info">
                     <h2 id="charName">-</h2>

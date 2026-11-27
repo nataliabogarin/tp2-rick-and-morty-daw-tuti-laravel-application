@@ -33,7 +33,7 @@
             @forelse($originCharacters as $character)
                 <li>
                     <a href="{{ route('characters.show', $character->id_character) }}">
-                        <img src="{{ $character->image }}" alt="" loading="lazy">{{ $character->name }}
+                        <img src="{{ $character->image }}" alt="" loading="lazy" onerror="this.onerror=null; this.src='{{ asset('images/personaje-sin-imagen.jpg') }}';">{{ $character->name }}
                     </a>
                     <span class="badge {{ $character->status }}">{{ $character->status }}</span>
                 </li>
@@ -51,7 +51,7 @@
             @forelse($currentCharacters as $character)
                 <li>
                     <a href="{{ route('characters.show', $character->id_character) }}">
-                        <img src="{{ $character->image }}" alt="" loading="lazy">{{ $character->name }}
+                        <img src="{{ $character->image }}" alt="" loading="lazy" onerror="this.onerror=null; this.src='{{ asset('images/personaje-sin-imagen.jpg') }}';">{{ $character->name }}
                     </a>
                     <span class="badge {{ $character->status }}">{{ $character->status }}</span>
                 </li>

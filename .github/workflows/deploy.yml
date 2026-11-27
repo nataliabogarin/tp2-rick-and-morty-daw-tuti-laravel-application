@@ -122,6 +122,13 @@ jobs:
           git fetch --prune origin main
           git reset --hard origin/main
 
+          # Hostinger toma la versión de PHP del subdominio desde el .htaccess (SetHandler):
+          # forzamos PHP 8.4, que es la que exige composer.lock
+          if ! grep -q 'x-lsphp84' public/.htaccess; then
+            { printf '<FilesMatch "\\.php$">\n    SetHandler application/x-lsphp84\n</FilesMatch>\n\n'; cat public/.htaccess; } > public/.htaccess.tmp
+            mv public/.htaccess.tmp public/.htaccess
+          fi
+
           # ---------- 2. Dependencias ----------
           $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
 

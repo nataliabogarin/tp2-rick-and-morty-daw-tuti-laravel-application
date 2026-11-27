@@ -1,38 +1,32 @@
 @extends('layout.layout')
+
+@section('titulo', 'Nueva contraseña')
+
 @section('contenido')
+<div class="pagina pagina-angosta">
+    <div class="panel">
+        <h1 class="titulo-pagina">Nueva contraseña</h1>
 
-<div style="max-width: 400px; margin: 50px auto; font-family: sans-serif;">
+        <form method="POST" action="{{ route('password.update') }}" class="formulario">
+            @csrf
+            <input type="hidden" name="token" value="{{ $token }}">
 
-<form method="POST" action="{{ route('password.update') }}">
-    @csrf
-    <input type="hidden" name="token" value="{{ $token }}">
-
-    <div>
-        <label>Correo Electrónico</label>
-        <input type="email" name="email" value="{{ $email ?? old('email') }}" required />
-        @error('email')
-            <span style="color: red;">{{ $message }}</span>
-        @enderror
+            <div class="campo">
+                <label for="email">Correo electrónico</label>
+                <input type="email" id="email" name="email" value="{{ $email ?? old('email') }}" required>
+                @error('email') <span class="error-campo">{{ $message }}</span> @enderror
+            </div>
+            <div class="campo">
+                <label for="password">Nueva contraseña</label>
+                <input type="password" id="password" name="password" required>
+                @error('password') <span class="error-campo">{{ $message }}</span> @enderror
+            </div>
+            <div class="campo">
+                <label for="password_confirmation">Confirmar contraseña</label>
+                <input type="password" id="password_confirmation" name="password_confirmation" required>
+            </div>
+            <button type="submit" class="btn">Restablecer contraseña</button>
+        </form>
     </div>
-
-
-
-    <div>
-        <label>Nueva Contraseña</label>
-        <input type="password" name="password" required />
-        @error('password')
-            <span style="color: red;">{{ $message }}</span>
-        @enderror
-    </div>
-
-    <div>
-        <label>Confirmar Contraseña</label>
-        <input type="password" name="password_confirmation" required />
-    </div>
-
-    <button type="submit">Restablecer Contraseña</button>
-</form>
 </div>
-
-
 @endsection

@@ -25,6 +25,9 @@ class EpisodeController extends Controller
     {
         $episode = Episode::with('characters')->findOrFail($id);
 
-        return view('episode.show', compact('episode'));
+        // Listas de episodios del usuario, marcando en cuáles ya está este episodio
+        $listas = auth()->user()?->listsOfTypeWithItem('episode', $episode->id_episode) ?? collect();
+
+        return view('episode.show', compact('episode', 'listas'));
     }
 }

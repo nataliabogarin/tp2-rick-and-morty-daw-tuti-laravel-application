@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\CustomListController;
 use App\Http\Controllers\EpisodeController;
+use App\Http\Controllers\ExplorerController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ProfileController;
@@ -17,9 +18,14 @@ Route::fallback(function () {
     return redirect('/');
 });
 
-Route::get('/', function () {
-    return view('inicio');
-});
+// Explorador principal (la pantalla del TP1)
+Route::get('/', [ExplorerController::class, 'index'])->name('home');
+// Datos de un personaje en JSON para el panel de detalle
+Route::get('/explorador/personajes/{id}', [ExplorerController::class, 'character'])->name('explorer.character');
+// Sincronizar con la API: solo administradores
+Route::post('/sincronizar', [ExplorerController::class, 'sync'])
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('explorer.sync');
 
 // ruta de Character
 Route::get('/characters', [CharacterController::class, 'index'])->name('characters.index');

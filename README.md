@@ -12,13 +12,14 @@ Este documento explica cómo instalar y ejecutar el proyecto en un entorno local
 
 ## Funcionalidades
 
-- **Explorador público:** listado y detalle de personajes, episodios y ubicaciones, con navegación entre sus relaciones.
+- **Pantalla principal del explorador:** retoma la interfaz del Trabajo Práctico N.º 1, con filtro por temporada, buscador de personajes y panel de detalle que se actualiza sin recargar la página.
+- **Explorador público:** listado y detalle de personajes, episodios y ubicaciones, con navegación entre sus relaciones y paginación de los resultados.
 - **Registro y autenticación de usuarios:** registro, inicio y cierre de sesión, y recuperación de contraseña.
 - **Listas personalizadas:** disponibles para usuarios autenticados.
   - Cada lista pertenece a un único usuario.
   - Cada lista admite un único tipo de contenido: personajes o episodios.
   - Un elemento no puede repetirse dentro de una misma lista.
-- **Funcionalidades adicionales:** favoritos, edición del perfil y administración de usuarios para el rol administrador.
+- **Funcionalidades adicionales:** favoritos, edición del perfil, administración de usuarios y sincronización de datos con la API para el rol administrador.
 
 ## Requisitos previos
 
@@ -181,6 +182,8 @@ app/Policies/              Políticas de autorización
 database/migrations/       Migraciones del esquema
 database/seeders/          Carga inicial del usuario administrador
 resources/views/           Vistas Blade
+public/css/                Hojas de estilo de la interfaz
+public/js/                 JavaScript del explorador (filtros y panel de detalle)
 routes/web.php             Definición de rutas
 docs/uso-ia.md             Documentación del uso de Inteligencia Artificial
 ```

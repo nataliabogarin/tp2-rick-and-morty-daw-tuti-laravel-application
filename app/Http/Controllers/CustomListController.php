@@ -31,6 +31,23 @@ class CustomListController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
+        // Desde la ficha de un personaje o episodio se puede crear la lista y agregar el elemento
+        // en un solo paso. Validamos que exista en la tabla que corresponde al tipo elegido.
+        if ($request->filled('item_id')) {
+            $request->validate([
+                'item_id' => ['integer', $validated['type'] === 'character'
+                    ? 'exists:characters,id_character'
+                    : 'exists:episode,id_episode'],
+            ], [
+                'item_id.exists' => 'El elemento no existe o no corresponde al tipo de esta lista.',
+            ]);
+
+            $list = $user->customLists()->create($validated);
+            $list->items()->create(['item_id' => $request->integer('item_id')]);
+
+            return back()->with('success', "Lista \"{$list->name}\" creada y elemento agregado.");
+        }
+
         $user->customLists()->create($validated);
 
         return redirect()->route('listas.index')->with('success', 'Lista creada correctamente.');
@@ -94,10 +111,10 @@ class CustomListController extends Controller
         ]);
 
         if (! $item->wasRecentlyCreated) {
-            return back()->with('error', 'Ese elemento ya estaba agregado en esta lista.');
+            return back()->with('error', "Ya estaba guardado en \"{$customList->name}\".");
         }
 
-        return back()->with('success', 'Elemento agregado a la lista.');
+        return back()->with('success', "Agregado a \"{$customList->name}\".");
     }
 
     // Quita un personaje o episodio de una lista
@@ -107,6 +124,6 @@ class CustomListController extends Controller
 
         $customList->items()->where('item_id', $itemId)->delete();
 
-        return back()->with('success', 'Elemento quitado de la lista.');
+        return back()->with('success', "Quitado de \"{$customList->name}\".");
     }
 }

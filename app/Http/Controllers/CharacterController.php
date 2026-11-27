@@ -26,6 +26,9 @@ class CharacterController extends Controller
     {
         $character = Character::with(['originLocation', 'currentLocation', 'episode'])->findOrFail($id);
 
-        return view('character.show', compact('character'));
+        // Listas de personajes del usuario, marcando en cuáles ya está este personaje
+        $listas = auth()->user()?->listsOfTypeWithItem('character', $character->id_character) ?? collect();
+
+        return view('character.show', compact('character', 'listas'));
     }
 }

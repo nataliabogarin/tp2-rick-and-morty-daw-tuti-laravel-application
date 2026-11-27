@@ -1,62 +1,52 @@
 @extends('layout.layout')
 
+@section('titulo', 'Editar usuario')
+
 @section('contenido')
-<div class="container">
-    <h1>Editar Usuario: {{ $user->name }}</h1>
-    
-    @if (session('status'))
-        <div style="color: green; margin-bottom: 15px;">
-            {{ session('status') }}
-        </div>
-    @endif
+<div class="pagina pagina-angosta">
+    <a href="{{ route('users.index') }}" class="btn btn-secundario btn-chico volver">← Volver al listado</a>
 
-    <form method="POST" action="{{ route('users.update', $user->id) }}">
-        @csrf
-        @method('PUT')
+    <div class="panel">
+        <h1 class="titulo-pagina">Editar usuario</h1>
+        <p class="subtitulo">{{ $user->name }}</p>
 
-        <div>
-            <label>Nombre:</label>
-            <input type="text" name="name" value="{{ old('name', $user->name) }}" required>
-            @error('name') <span style="color: red;">{{ $message }}</span> @enderror
-        </div>
+        <form method="POST" action="{{ route('users.update', $user->id) }}" class="formulario">
+            @csrf
+            @method('PUT')
 
-        <div style="margin-top: 10px;">
-            <label>Correo Electrónico:</label>
-            <input type="email" name="email" value="{{ old('email', $user->email) }}" required>
-            @error('email') <span style="color: red;">{{ $message }}</span> @enderror
-        </div>
+            <div class="campo">
+                <label for="name">Nombre</label>
+                <input type="text" id="name" name="name" value="{{ old('name', $user->name) }}" required>
+                @error('name') <span class="error-campo">{{ $message }}</span> @enderror
+            </div>
 
-        <div style="margin-top: 10px;">
-            <label>Nueva Contraseña (opcional):</label>
-            <input type="password" name="password">
-            @error('password') <span style="color: red;">{{ $message }}</span> @enderror
-        </div>
+            <div class="campo">
+                <label for="email">Correo electrónico</label>
+                <input type="email" id="email" name="email" value="{{ old('email', $user->email) }}" required>
+                @error('email') <span class="error-campo">{{ $message }}</span> @enderror
+            </div>
 
-        <div style="margin-top: 10px;">
-            <label>Confirmar Contraseña:</label>
-            <input type="password" name="password_confirmation">
-        </div>
+            <div class="campo">
+                <label for="password">Nueva contraseña (opcional)</label>
+                <input type="password" id="password" name="password">
+                @error('password') <span class="error-campo">{{ $message }}</span> @enderror
+            </div>
 
-        {{-- Ubicación exacta: después de confirmar contraseña y antes del botón submit --}}
-        <div style="margin: 15px 0;">
-            <label for="is_admin">
-                <input 
-                    type="checkbox" 
-                    name="is_admin" 
-                    id="is_admin" 
-                    value="1" 
-                    {{ old('is_admin', $user->is_admin) ? 'checked' : '' }}
-                    {{ auth()->id() === $user->id ? 'disabled' : '' }}
-                >
-                Permisos de Administrador
-            </label>
-        </div>
+            <div class="campo">
+                <label for="password_confirmation">Confirmar contraseña</label>
+                <input type="password" id="password_confirmation" name="password_confirmation">
+            </div>
 
-        <button type="submit" style="margin-top: 15px;">Actualizar Usuario</button>
-    </form>
+            {{-- El admin no puede quitarse su propio permiso --}}
+            <div class="campo check">
+                <input type="checkbox" name="is_admin" id="is_admin" value="1"
+                    @checked(old('is_admin', $user->is_admin))
+                    @disabled(auth()->id() === $user->id)>
+                <label for="is_admin">Permisos de administrador</label>
+            </div>
 
-    <p style="margin-top: 20px;">
-        <a href="{{ route('users.index') }}">← Volver al listado</a>
-    </p>
+            <button type="submit" class="btn">Actualizar usuario</button>
+        </form>
+    </div>
 </div>
 @endsection

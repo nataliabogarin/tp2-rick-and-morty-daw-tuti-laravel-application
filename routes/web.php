@@ -1,52 +1,48 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\CharacterController;
-use App\Http\Controllers\EpisodeController;
-use App\Http\Controllers\LocationController;
-use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\CharacterController;
+use App\Http\Controllers\CustomListController;
+use App\Http\Controllers\EpisodeController;
+use App\Http\Controllers\ExplorerController;
+use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\AdminMiddleware;
-use App\Http\Controllers\CustomListController;
-
-// Route::get('/', function () {
-//     return view('welcome');
-// });
-
+use Illuminate\Support\Facades\Route;
 
 // Captura cualquier ruta que no coincida con las anteriores y redirige al inicio
 Route::fallback(function () {
     return redirect('/');
 });
 
+// Explorador principal (la pantalla del TP1)
+Route::get('/', [ExplorerController::class, 'index'])->name('home');
+// Datos de un personaje en JSON para el panel de detalle
+Route::get('/explorador/personajes/{id}', [ExplorerController::class, 'character'])->name('explorer.character');
+// Sincronizar con la API: solo administradores
+Route::post('/sincronizar', [ExplorerController::class, 'sync'])
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('explorer.sync');
 
-Route::get('/', function(){
-    return view('inicio');
-}); 
-Route::get('/favoritos', function(){
-    return view('favoritos');
-});
-
-//ruta de Character
+// ruta de Character
 Route::get('/characters', [CharacterController::class, 'index'])->name('characters.index');
-//ruta de Character show
+// ruta de Character show
 Route::get('/character/{id}', [CharacterController::class, 'show'])->name('characters.show');
-//ruta de Episode
+// ruta de Episode
 Route::get('/episodes', [EpisodeController::class, 'index'])->name('episodes.index');
-//ruta de Episode show
+// ruta de Episode show
 Route::get('/episode/{id}', [EpisodeController::class, 'show'])->name('episodes.show');
 
-//ruta de locaciones
+// ruta de locaciones
 Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
 
 Route::get('/locations/{id}', [LocationController::class, 'show'])->name('locations.show');
 
-
-//favoritos rutas
-Route::middleware(['auth'])->prefix('favoritos')->name('favorites.')->group(function (){
+// favoritos rutas
+Route::middleware(['auth'])->prefix('favoritos')->name('favorites.')->group(function () {
     Route::get('/', [FavoriteController::class, 'index'])->name('index');
     Route::post('/{type}/{id}', [FavoriteController::class, 'store'])->name('store');
     Route::delete('/{favorite}', [FavoriteController::class, 'destroy'])->name('destroy');
@@ -81,18 +77,17 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });
 
-// route de adm de usuarios
-//Route::resource('users', UserController::class);
-
 // Panel de administración de usuarios (Protegido: Auth + AdminMiddleware)
+// Solo registramos las acciones que realmente usamos: listar, editar y eliminar
 Route::middleware(['auth', AdminMiddleware::class])->group(function () {
-    Route::resource('users', UserController::class);
+    Route::resource('users', UserController::class)->only(['index', 'edit', 'update', 'destroy']);
 });
 // Listas personalizadas (Requiere usuario autenticado)
 Route::middleware(['auth'])->prefix('listas')->name('listas.')->group(function () {
     Route::get('/', [CustomListController::class, 'index'])->name('index');
     Route::post('/', [CustomListController::class, 'store'])->name('store');
     Route::get('/{customList}', [CustomListController::class, 'show'])->name('show');
+    Route::put('/{customList}', [CustomListController::class, 'update'])->name('update');
     Route::delete('/{customList}', [CustomListController::class, 'destroy'])->name('destroy');
     Route::post('/{customList}/items', [CustomListController::class, 'addItem'])->name('items.add');
     Route::delete('/{customList}/items/{itemId}', [CustomListController::class, 'removeItem'])->name('items.remove');

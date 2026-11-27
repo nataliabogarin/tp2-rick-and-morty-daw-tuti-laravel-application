@@ -1,65 +1,53 @@
 @extends('layout.layout')
+
+@section('titulo', 'Favoritos')
+
 @section('contenido')
+<div class="pagina">
+    <div class="panel">
+        <h1 class="titulo-pagina">⭐ Mis favoritos</h1>
+        <p class="subtitulo">Personajes, episodios y ubicaciones que guardaste.</p>
 
-   <div class="container">
-   
-    <h1>⭐ Mis Favoritos</h1>
-    <p>Listado de favoritos</p>
-<!-- 
-    <nav style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; border-radius: 8px;">
-   
-    
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="color: #4a5568;">Hola, <strong>{{ Auth::user()->name }}</strong></span>
-        
-        {{-- Formulario POST para cerrar sesión --}}
-        <form action="{{ route('logout') }}" method="POST" style="margin: 0;">
-            @csrf
-            <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                Cerrar Sesión
-            </button>
-        </form>
+        @if(session('success'))
+            <div class="alerta alerta-exito">{{ session('success') }}</div>
+        @endif
+
+        @php
+            // Según el tipo de favorito armamos el link y el nombre que se muestra
+            $tipos = [
+                \App\Models\Character::class => ['Personaje', 'characters.show'],
+                \App\Models\Episode::class => ['Episodio', 'episodes.show'],
+                \App\Models\Location::class => ['Ubicación', 'locations.show'],
+            ];
+        @endphp
+
+        <ul class="lista-enlaces">
+            @forelse($favorites as $favorite)
+                <li>
+                    @if($favorite->favorable)
+                        @php [$tipo, $ruta] = $tipos[$favorite->favorable_type] ?? ['Elemento', null]; @endphp
+                        <span>
+                            @if($ruta)
+                                <a href="{{ route($ruta, $favorite->favorable->getKey()) }}"><strong>{{ $favorite->favorable->name }}</strong></a>
+                            @else
+                                <strong>{{ $favorite->favorable->name }}</strong>
+                            @endif
+                            <span class="etiqueta-tipo">{{ $tipo }}</span>
+                        </span>
+                    @else
+                        <span class="detalle">El elemento original ya no existe.</span>
+                    @endif
+
+                    <form action="{{ route('favorites.destroy', $favorite->id) }}" method="POST" class="form-en-linea" onsubmit="return confirm('¿Eliminar este favorito?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-peligro btn-chico">Eliminar</button>
+                    </form>
+                </li>
+            @empty
+                <li>Todavía no guardaste favoritos.</li>
+            @endforelse
+        </ul>
     </div>
-    </nav> -->
-
-
-    @if(session('success'))
-        <div style="background: #c6f6d5; color: #22543d; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    {{-- Verificamos si la variable $favorites viene del controlador o usamos Auth directamente --}}
-    @php
-        $userFavorites = $favorites ?? Auth::user()->favorites()->with('favorable')->get();
-    @endphp
-
-    @forelse($userFavorites as $favorite)
-        <div class="card">
-            <div class="info">
-                @if($favorite->favorable)
-                    {{-- Mostramos el nombre o título dependiendo de la entidad polimórfica --}}
-                    <h3>{{ $favorite->favorable->name ?? $favorite->favorable->title ?? 'Elemento sin nombre' }}</h3>
-                    <span class="badge">{{ class_basename($favorite->favorable_type) }}</span>
-                @else
-                    <span style="color: red;">El elemento original ya no existe.</span>
-                @endif
-            </div>
-
-            <div>
-                {{-- Formulario para eliminar el favorito mediante DELETE --}}
-                <form action="{{ route('favorites.destroy', $favorite->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar este favorito?');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn-delete">Eliminar</button>
-                </form>
-            </div>
-        </div>
-    @empty
-        <div class="empty">
-            <p>No tienes elementos guardados en tus favoritos todavía.</p>
-        </div>
-    @endforelse
 </div>
-
 @endsection

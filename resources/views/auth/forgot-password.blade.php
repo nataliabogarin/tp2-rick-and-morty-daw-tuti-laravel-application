@@ -1,27 +1,28 @@
 @extends('layout.layout')
-@section('contenido')
 
-<div style="max-width: 400px; margin: 50px auto; font-family: sans-serif;">
-        <h2>Recuperar Contraseña</h2>
+@section('titulo', 'Recuperar contraseña')
+
+@section('contenido')
+<div class="pagina pagina-angosta">
+    <div class="panel">
+        <h1 class="titulo-pagina">Recuperar contraseña</h1>
+        <p class="subtitulo">Ingresá tu correo y te enviamos un enlace para crear una nueva contraseña.</p>
 
         @if (session('status'))
-            <div style="color: green; margin-bottom: 15px;">
-                {{ session('status') }}
-            </div>
+            <div class="alerta alerta-exito">{{ session('status') }}</div>
         @endif
 
-        <form method="POST" action="{{ route('password.email') }}">
+        <form method="POST" action="{{ route('password.email') }}" class="formulario">
             @csrf
-            
-            <div style="margin-bottom: 15px;">
-                <label for="email" style="display: block; margin-bottom: 5px;">Correo Electrónico</label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus style="width: 100%; padding: 8px;">
-                @error('email')
-                    <span style="color: red; font-size: 0.9em;">{{ $message }}</span>
-                @enderror
+            <div class="campo">
+                <label for="email">Correo electrónico</label>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus>
+                @error('email') <span class="error-campo">{{ $message }}</span> @enderror
             </div>
-
-            <button type="submit" style="padding: 10px 15px;">Enviar Enlace de Recuperación</button>
+            <button type="submit" class="btn">Enviar enlace de recuperación</button>
         </form>
+
+        <p class="enlaces-formulario"><a href="{{ route('login') }}">← Volver a iniciar sesión</a></p>
     </div>
+</div>
 @endsection

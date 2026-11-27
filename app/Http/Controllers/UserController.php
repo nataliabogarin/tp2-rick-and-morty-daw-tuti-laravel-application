@@ -2,56 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-
-
-
-
-
-
+    // Listado de usuarios para el panel de administración
     public function index()
     {
-        $users = User::all();
+        $users = User::orderBy('name')->paginate(20);
+
         return view('users.index', compact('users'));
     }
 
-    
-    public function create()
-    {
-        //
-    }
-
-    
-    public function store(Request $request)
-    {
-        //
-    }
-
-    
-    public function show(string $id)
-    {
-        //
-    }
-
-    
     public function edit(User $user)
     {
-        // Pasarlo correctamente a la vista
         return view('users.edit', compact('user'));
     }
 
-   
-  public function update(Request $request, User $user)
+    public function update(Request $request, User $user)
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email,' . $user->id],
+            'email' => ['required', 'email', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'min:8', 'confirmed'],
         ]);
 
@@ -71,7 +46,7 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('status', '¡Usuario actualizado por el administrador!');
     }
-    
+
     public function destroy(User $user)
     {
         // Evitar que el admin se elimine a sí mismo por accidente
@@ -80,6 +55,7 @@ class UserController extends Controller
         }
 
         $user->delete();
+
         return redirect()->route('users.index')->with('status', '¡Usuario eliminado con éxito!');
     }
 }

@@ -1,43 +1,51 @@
-@extends('layout.layout') {{-- O el nombre de tu layout principal --}}
+@extends('layout.layout')
+
+@section('titulo', 'Administración de usuarios')
 
 @section('contenido')
-<p>Valor de is_admin: {{ auth()->user()->is_admin ?? 'No definido' }}</p>
-<div class="container">
-    <h1>Panel de Administración - Usuarios</h1>
+<div class="pagina">
+    <div class="panel">
+        <h1 class="titulo-pagina">Panel de administración</h1>
+        <p class="subtitulo">Usuarios registrados</p>
 
-    @if (session('status'))
-        <div class="alert alert-success" style="color: green;">
-            {{ session('status') }}
-        </div>
-    @endif
+        @if (session('error'))
+            <div class="alerta alerta-error">{{ session('error') }}</div>
+        @endif
+        @if (session('status'))
+            <div class="alerta alerta-exito">{{ session('status') }}</div>
+        @endif
 
-    <table border="1" cellpadding="10" cellspacing="0" style="width: 100%; margin-top: 20px;">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($users as $user)
+        <table class="tabla">
+            <thead>
                 <tr>
-                    <td>{{ $user->id }}</td>
-                    <td>{{ $user->name }}</td>
-                    <td>{{ $user->email }}</td>
-                    <td>
-                        <a href="{{ route('users.edit', $user->id) }}">Editar</a>
-                        
-                        <form action="{{ route('users.destroy', $user->id) }}" method="POST" style="display:inline;">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" onclick="return confirm('¿Estás seguro de eliminar este usuario?')" style="color: red;">Eliminar</button>
-                        </form>
-                    </td>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Acciones</th>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach ($users as $user)
+                    <tr>
+                        <td>{{ $user->id }}</td>
+                        <td>{{ $user->name }}</td>
+                        <td>{{ $user->email }}</td>
+                        <td>@if($user->is_admin)<span class="etiqueta-tipo">Admin</span>@else Usuario @endif</td>
+                        <td>
+                            <a href="{{ route('users.edit', $user->id) }}" class="btn btn-secundario btn-chico">Editar</a>
+                            <form action="{{ route('users.destroy', $user->id) }}" method="POST" class="form-en-linea" onsubmit="return confirm('¿Eliminar este usuario?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-peligro btn-chico">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{ $users->links() }}
+    </div>
 </div>
 @endsection

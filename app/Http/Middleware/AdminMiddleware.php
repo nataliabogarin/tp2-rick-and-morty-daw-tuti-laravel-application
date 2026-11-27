@@ -15,12 +15,12 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        //dd(auth()->check(), auth()->user()?->is_admin);
-
+        // Restringe el acceso a usuarios administradores
         if (!auth()->check() || !auth()->user()->is_admin) {
-            return redirect()->route('profile.edit')->with('error', 'No tienes permisos para acceder a esta sección.');
-        // abort(403, 'No tienes permisos para acceder a esta sección.');
-    }
+            return redirect()->route('profile.edit')
+                ->with('error', 'No tenés permisos para acceder a esta sección.');
+        }
+
         return $next($request);
     }
 }

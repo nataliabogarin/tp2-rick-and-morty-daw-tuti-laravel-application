@@ -25,12 +25,12 @@ Este documento explica cómo instalar y ejecutar el proyecto en un entorno local
 
 | Herramienta | Versión | Verificación |
 |---|---|---|
-| PHP | 8.3 o superior | `php -v` |
+| PHP | 8.4 o superior | `php -v` |
 | Composer | 2.x | `composer -V` |
 | Base de datos | SQLite 3 o MySQL 8 | — |
 | Git | — | `git --version` |
 
-Con versiones de PHP anteriores a la 8.3, la instalación de dependencias falla.
+Con versiones de PHP anteriores a la 8.4, la instalación de dependencias falla, ya que el archivo `composer.lock` incluye paquetes que requieren PHP 8.4.1 o superior. La imagen de Docker del proyecto ya utiliza PHP 8.4.
 
 Como alternativa, el proyecto puede ejecutarse con **Docker** y **Docker Compose**. Ese procedimiento se describe más abajo.
 
@@ -193,7 +193,7 @@ docs/uso-ia.md             Documentación del uso de Inteligencia Artificial
 | Problema | Solución |
 |---|---|
 | No se encuentra `vendor/autoload.php` | Ejecutar `composer install`. |
-| Error de versión de PHP al instalar dependencias | Actualizar PHP a la versión 8.3 o superior. |
+| Error de versión de PHP al instalar dependencias | Actualizar PHP a la versión 8.4 o superior. |
 | `No application encryption key has been specified` | Ejecutar `php artisan key:generate`. |
 | No existe el archivo de base de datos SQLite | Crear el archivo `database/database.sqlite`. |
 | El explorador no muestra resultados | Ejecutar `php artisan rick-morty:import`. |

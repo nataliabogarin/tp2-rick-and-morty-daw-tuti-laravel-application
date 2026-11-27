@@ -57,4 +57,4 @@ En la etapa final, la herramienta se utilizó para contrastar el proyecto con lo
 
 ## Conclusión
 
-El uso de la IA facilitó la comprensión de conceptos del framework y la incorporación de pruebas automatizadas, un aspecto nuevo para el grupo. Su utilización no reemplazó el análisis, el diseño ni el desarrollo de la solución, que fueron realizados por los integrantes. Cada integrante está en condiciones de explicar, justificar y modificar cualquier parte de la implementación presentada, como lo establece la consigna.
+El uso de la IA facilitó la comprensión de conceptos del framework y la incorporación de pruebas automatizadas, un aspecto nuevo para el grupo. Su utilización no reemplazó el análisis, el diseño ni el desarrollo de la solución, que fue desarrollada por los integrantes del equipo.

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomList;
-use App\Models\User; // <-- CAMBIO 1: Importamos tu modelo User
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,7 +12,7 @@ class CustomListController extends Controller
     // Muestra todas las listas del usuario autenticado
     public function index()
     {
-        /** @var User $user */ // <-- CAMBIO 2: Indicamos a VS Code que $user es App\Models\User
+        /** @var User $user */
         $user = Auth::user();
 
         $lists = $user->customLists()->withCount('items')->get();
@@ -27,7 +27,7 @@ class CustomListController extends Controller
             'type' => ['required', 'in:character,episode'],
         ]);
 
-        /** @var User $user */ // <-- CAMBIO 3: Mismo tipado al crear una lista nueva
+        /** @var User $user */
         $user = Auth::user();
 
         $user->customLists()->create($validated);
@@ -61,8 +61,15 @@ class CustomListController extends Controller
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
+        // Valida la existencia del elemento según el tipo de lista
         $request->validate([
-            'item_id' => ['required', 'integer'],
+            'item_id' => [
+                'required',
+                'integer',
+                $customList->type === 'character'
+                    ? 'exists:characters,id_character'
+                    : 'exists:episode,id_episode',
+            ],
         ]);
 
         $item = $customList->items()->firstOrCreate([
@@ -81,7 +88,12 @@ class CustomListController extends Controller
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
-        $customList->items()->where('item_id', $itemId)->delete();
+        $deleted = $customList->items()->where('item_id', $itemId)->delete();
+
+        // Verifica que el elemento haya sido eliminado
+        if ($deleted === 0) {
+            return back()->with('error', 'El elemento no se encuentra en esta lista.');
+        }
 
         return back()->with('success', 'Elemento quitado de la lista.');
     }

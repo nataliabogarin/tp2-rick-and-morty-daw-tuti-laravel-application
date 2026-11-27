@@ -15,6 +15,14 @@ class DatabaseSeeder extends Seeder
     {
         // Solo crea el administrador si todavía no existe ninguno en la base de datos
         if (!User::where('is_admin', true)->exists()) {
+
+            // Valida que el correo del administrador no esté registrado
+            if (User::where('email', 'admin@rickandmorty.test')->exists()) {
+                throw new \RuntimeException(
+                    'No se puede crear el administrador: el correo electrónico ya está registrado.'
+                );
+            }
+
             User::forceCreate([
                 'name' => 'Administrador',
                 'email' => 'admin@rickandmorty.test',

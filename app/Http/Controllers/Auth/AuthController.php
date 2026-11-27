@@ -20,12 +20,11 @@ class AuthController extends Controller
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
-            'password' => ['required'],
+            'password' => ['required', 'string'],
         ]);
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-
             return redirect()->intended('/')->with('success', '¡Bienvenido de vuelta!');
         }
 
@@ -46,11 +45,10 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            // 'confirmed' espera un campo password_confirmation. Usamos min:8 igual que en perfil y recuperación
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        // Gracias al cast 'password' => 'hashed' en tu modelo User, se cifra solo
+        // La contraseña se almacena mediante un hash definido en el modelo User
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -59,7 +57,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect('/')->with('success', '¡Cuenta creada con éxito!');
+        return redirect('/')->with('success', '¡Usuario registrado correctamente!');
     }
 
     // Cerrar sesión

@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Favorite;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class FavoritePolicy
 {
@@ -45,7 +44,6 @@ class FavoritePolicy
      */
     public function delete(User $user, Favorite $favorite): bool
     {
-        // return false;
         return $user->id === $favorite->user_id;
     }
 

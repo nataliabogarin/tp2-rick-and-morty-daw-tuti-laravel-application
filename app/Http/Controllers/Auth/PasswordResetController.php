@@ -3,28 +3,25 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Auth\Events\PasswordReset;
 
 class PasswordResetController extends Controller
 {
-    /**
-     * Muestra el formulario para pedir el enlace de recuperación.
-     */
+    // Muestra el formulario de solicitud de recuperación de contraseña
     public function create()
     {
         return view('auth.forgot-password');
     }
 
-    /**
-     * Envía el enlace de recuperación al correo usando el sistema nativo de Laravel.
-     */
+    // Solicita el envío del enlace de recuperación
     public function store(Request $request)
     {
-        $request->validate(['email' => ['required', 'email']]);
+        $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+        ]);
 
         $status = Password::sendResetLink(
             $request->only('email')
@@ -35,10 +32,7 @@ class PasswordResetController extends Controller
             : back()->withErrors(['email' => __($status)]);
     }
 
-    /**
-     * Muestra el formulario para ingresar la nueva contraseña.
-     * El token llega en la URL y el email como parámetro.
-     */
+    // Muestra el formulario de restablecimiento de contraseña
     public function edit(Request $request, $token)
     {
         return view('auth.reset-password', [
@@ -47,22 +41,20 @@ class PasswordResetController extends Controller
         ]);
     }
 
-    /**
-     * Valida el token y guarda la nueva contraseña.
-     */
+    // Restablece la contraseña mediante un token válido
     public function update(Request $request)
     {
         $request->validate([
-            'token' => ['required'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', 'min:8'],
+            'token' => ['required', 'string'],
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
                 $user->forceFill([
-                    'password' => Hash::make($password),
+                    'password' => $password,
                 ])->setRememberToken(Str::random(60));
 
                 $user->save();

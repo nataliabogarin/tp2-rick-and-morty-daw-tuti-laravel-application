@@ -31,19 +31,23 @@ class CustomListController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        // Desde la ficha de un personaje o episodio se puede crear la lista y agregar el elemento
-        // en un solo paso. Validamos que exista en la tabla que corresponde al tipo elegido.
+        // Permite crear una lista y agregar un elemento en un solo paso
         if ($request->filled('item_id')) {
             $request->validate([
-                'item_id' => ['integer', $validated['type'] === 'character'
-                    ? 'exists:characters,id_character'
-                    : 'exists:episode,id_episode'],
+                'item_id' => [
+                    'integer',
+                    $validated['type'] === 'character'
+                        ? 'exists:characters,id_character'
+                        : 'exists:episode,id_episode',
+                ],
             ], [
                 'item_id.exists' => 'El elemento no existe o no corresponde al tipo de esta lista.',
             ]);
 
             $list = $user->customLists()->create($validated);
-            $list->items()->create(['item_id' => $request->integer('item_id')]);
+            $list->items()->create([
+                'item_id' => $request->integer('item_id'),
+            ]);
 
             return back()->with('success', "Lista \"{$list->name}\" creada y elemento agregado.");
         }
@@ -64,8 +68,7 @@ class CustomListController extends Controller
         return view('listas.show', compact('customList', 'elements'));
     }
 
-    // Renombra una lista. Solo se puede cambiar el nombre: el tipo queda fijo
-    // para no mezclar personajes y episodios que ya estén cargados
+    // Renombra una lista sin modificar su tipo
     public function update(Request $request, CustomList $customList)
     {
         abort_if($customList->user_id !== Auth::id(), 403);
@@ -89,13 +92,12 @@ class CustomListController extends Controller
         return redirect()->route('listas.index')->with('success', 'Lista eliminada.');
     }
 
-    // Agrega un personaje o episodio a una lista (evitando duplicados)
+    // Agrega un personaje o episodio a una lista evitando duplicados
     public function addItem(Request $request, CustomList $customList)
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
-        // Validamos que el elemento exista en la tabla que corresponde al tipo de la lista.
-        // Así una lista de personajes no puede recibir un episodio (ni un id inventado).
+        // Valida la existencia del elemento según el tipo de lista
         $tablaSegunTipo = $customList->type === 'character'
             ? 'exists:characters,id_character'
             : 'exists:episode,id_episode';
@@ -110,7 +112,7 @@ class CustomListController extends Controller
             'item_id' => $request->item_id,
         ]);
 
-        if (! $item->wasRecentlyCreated) {
+        if (!$item->wasRecentlyCreated) {
             return back()->with('error', "Ya estaba guardado en \"{$customList->name}\".");
         }
 
@@ -122,7 +124,12 @@ class CustomListController extends Controller
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
-        $customList->items()->where('item_id', $itemId)->delete();
+        $deleted = $customList->items()->where('item_id', $itemId)->delete();
+
+        // Verifica que el elemento haya sido eliminado
+        if ($deleted === 0) {
+            return back()->with('error', 'El elemento no se encuentra en esta lista.');
+        }
 
         return back()->with('success', "Quitado de \"{$customList->name}\".");
     }

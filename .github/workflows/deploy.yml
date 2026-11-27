@@ -2,11 +2,14 @@
 #
 # Cada push a main:
 #   1) corre las pruebas en GitHub;
-#   2) si pasan, se conecta por SSH a Hostinger y actualiza la aplicación.
+#   2) si pasan, se conecta por SSH a Hostinger y actualiza la aplicación;
+#   3) si la base todavía no tiene personajes, descarga los datos de la API
+#      desde GitHub y los carga en la base de Hostinger. (La API rechaza las
+#      consultas que salen de la IP compartida de Hostinger con el error 429.)
 #
 # La primera vez también instala todo: clona el repositorio, crea el .env,
-# genera la clave, crea las tablas con el administrador inicial, importa los
-# datos de la API y apunta el subdominio a la carpeta public/.
+# genera la clave, crea las tablas con el administrador inicial y apunta el
+# subdominio a la carpeta public/.
 #
 # Secretos necesarios (Settings → Secrets and variables → Actions):
 #   HOSTINGER_HOST, HOSTINGER_PORT, HOSTINGER_USER, HOSTINGER_SSH_KEY, DB_PASSWORD
@@ -21,6 +24,10 @@ on:
 concurrency:
   group: deploy-produccion
   cancel-in-progress: false
+
+env:
+  # Huella de la clave del servidor (hPanel → Acceso SSH), para no conectarnos a un servidor falso
+  HOST_FINGERPRINT: SHA256:BasCT+DeuZlOSmyPwr1r46VaJ8Yref7jth4IFEycjqM
 
 jobs:
   tests:
@@ -51,112 +58,184 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - name: Actualizar el servidor por SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - uses: actions/checkout@v4
+
+      - name: Configurar SSH
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_USER }}
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/hostinger && chmod 600 ~/.ssh/hostinger
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          # Verificamos que la clave del servidor sea la que muestra hPanel
+          ssh-keygen -lf ~/.ssh/known_hosts | grep -q "$HOST_FINGERPRINT" \
+            || { echo "::error::La huella del servidor no coincide con la de hPanel"; exit 1; }
+          cat > ~/.ssh/config <<EOF
+          Host hostinger
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/hostinger
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Actualizar el servidor
+        id: servidor
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           REPO_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          {
+            printf 'DB_PASSWORD=%q\n' "$DB_PASSWORD"
+            printf 'REPO_URL=%q\n' "$REPO_URL"
+            cat <<'REMOTO'
+          set -euo pipefail
+
+          # ---------- Configuración ----------
+          DOMINIO=rickymortyexplorer.nbdev.ar
+          APP="$HOME/apps/rickymortyexplorer"                              # código de Laravel (fuera de toda carpeta pública)
+          DOCROOT="$HOME/domains/nbdev.ar/public_html/rickymortyexplorer"  # carpeta que publica el subdominio
+          DB_NAME=u449951669_rym
+          DB_USER=u449951669_rym
+          # En Hostinger la PHP de SSH no es la que se elige en hPanel: usamos la 8.4 explícitamente
+          PHP=/opt/alt/php84/usr/bin/php
+          COMPOSER="$PHP /usr/local/bin/composer2"
+
+          # ---------- 1. Código ----------
+          PRIMERA_VEZ=0
+          if [ ! -d "$APP/.git" ]; then
+            echo ">> Primera instalación: clonando el repositorio"
+            mkdir -p "$(dirname "$APP")"
+            git clone "$REPO_URL" "$APP"
+            PRIMERA_VEZ=1
+          fi
+          cd "$APP"
+
+          # Si algo falla, el sitio no queda en modo mantenimiento
+          trap '$PHP artisan up >/dev/null 2>&1 || true' EXIT
+          [ -f .env ] && { $PHP artisan down || true; }
+
+          git fetch --prune origin main
+          git reset --hard origin/main
+
+          # ---------- 2. Dependencias ----------
+          $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+          # ---------- 3. Archivo .env (solo la primera vez) ----------
+          if [ ! -f .env ]; then
+            echo ">> Creando .env de producción"
+            cp .env.example .env
+            cat > /tmp/rym-setenv.php <<'PHPCODE'
+          <?php
+          // Uso: php rym-setenv.php CLAVE VALOR  (reemplaza o agrega la línea en .env)
+          [$s, $clave, $valor] = $argv;
+          if ($valor !== '' && preg_match('/[\s#"\'\\\\$]/', $valor)) {
+              $valor = '"' . addcslashes($valor, "\"\\$") . '"';
+          }
+          $env = file_get_contents('.env');
+          $linea = $clave . '=' . $valor;
+          $patron = '/^#?\s*' . preg_quote($clave, '/') . '=.*$/m';
+          $env = preg_match($patron, $env)
+              ? preg_replace_callback($patron, fn () => $linea, $env, 1)
+              : rtrim($env) . PHP_EOL . $linea . PHP_EOL;
+          file_put_contents('.env', $env);
+          PHPCODE
+            set_env() { $PHP /tmp/rym-setenv.php "$1" "$2"; }
+            set_env APP_ENV production
+            set_env APP_DEBUG false
+            set_env APP_URL "https://$DOMINIO"
+            set_env LOG_LEVEL error
+            set_env DB_CONNECTION mysql
+            set_env DB_HOST 127.0.0.1
+            set_env DB_PORT 3306
+            set_env DB_DATABASE "$DB_NAME"
+            set_env DB_USERNAME "$DB_USER"
+            set_env DB_PASSWORD "$DB_PASSWORD"
+            rm -f /tmp/rym-setenv.php
+            chmod 600 .env
+            $PHP artisan key:generate --force
+          fi
+
+          # ---------- 4. Base de datos ----------
+          # El seeder solo crea el administrador si todavía no existe ninguno
+          $PHP artisan migrate --seed --force
+
+          # ---------- 5. Carpeta pública ----------
+          # El subdominio publica su carpeta: la reemplazamos por un enlace a public/ de Laravel.
+          # La carpeta original (solo tenía default.php de Hostinger) se guarda como respaldo.
+          if [ ! -L "$DOCROOT" ]; then
+            echo ">> Apuntando $DOCROOT a $APP/public"
+            if [ -e "$DOCROOT" ]; then
+              mv "$DOCROOT" "$HOME/apps/rickymortyexplorer_docroot_original_$(date +%Y%m%d%H%M%S)"
+            fi
+            ln -s "$APP/public" "$DOCROOT"
+          fi
+
+          # ---------- 6. Caché ----------
+          $PHP artisan optimize:clear
+          $PHP artisan config:cache
+          $PHP artisan route:cache
+          $PHP artisan view:cache
+          $PHP artisan up
+
+          # Informamos a GitHub cuántos personajes hay, para saber si hace falta importar
+          echo "PERSONAJES=$($PHP artisan tinker --execute='echo App\Models\Character::count();' | tail -n1)"
+          echo ">> Servidor actualizado: $(git log -1 --format='%h %s')"
+          REMOTO
+          } | ssh hostinger 'bash -s' | tee salida.log
+
+          PERSONAJES=$(grep -o '^PERSONAJES=[0-9]*' salida.log | cut -d= -f2)
+          echo "personajes=${PERSONAJES:-0}" >> "$GITHUB_OUTPUT"
+
+      # ---------- Importación de datos (solo si la base está vacía) ----------
+      - uses: shivammathur/setup-php@v2
+        if: steps.servidor.outputs.personajes == '0'
         with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          port: ${{ secrets.HOSTINGER_PORT }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          envs: DB_PASSWORD,REPO_URL
-          command_timeout: 30m
-          script: |
-            set -euo pipefail
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
 
-            # ---------- Configuración ----------
-            DOMINIO=rickymortyexplorer.nbdev.ar
-            APP="$HOME/apps/rickymortyexplorer"                          # código de Laravel (fuera de toda carpeta pública)
-            DOCROOT="$HOME/domains/nbdev.ar/public_html/rickymortyexplorer"  # carpeta que publica el subdominio
-            DB_NAME=u449951669_rym
-            DB_USER=u449951669_rym
-            # En Hostinger la PHP de SSH no es la que se elige en hPanel: usamos la 8.4 explícitamente
-            PHP=/opt/alt/php84/usr/bin/php
-            COMPOSER="$PHP /usr/local/bin/composer2"
+      - name: Importar en una base temporal y generar el SQL
+        if: steps.servidor.outputs.personajes == '0'
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan rick-morty:import
 
-            # ---------- 1. Código ----------
-            PRIMERA_VEZ=0
-            if [ ! -d "$APP/.git" ]; then
-              echo ">> Primera instalación: clonando el repositorio"
-              mkdir -p "$(dirname "$APP")"
-              git clone "$REPO_URL" "$APP"
-              PRIMERA_VEZ=1
-            fi
-            cd "$APP"
-            [ "$PRIMERA_VEZ" = 1 ] || $PHP artisan down || true
-            git fetch --prune origin main
-            git reset --hard origin/main
+          # Exportamos las tablas del explorador como INSERTs para MySQL
+          cat > /tmp/exportar.php <<'PHPCODE'
+          <?php
+          $pdo = new PDO('sqlite:database/database.sqlite');
+          $q = fn ($v) => $v === null ? 'NULL' : (is_int($v) || is_float($v) ? $v : "'" . str_replace(["\\", "'"], ["\\\\", "\\'"], $v) . "'");
+          echo "SET FOREIGN_KEY_CHECKS=0;\n";
+          foreach (['location', 'episode', 'characters', 'characters_episode'] as $tabla) {
+              $filas = $pdo->query("SELECT * FROM `$tabla`")->fetchAll(PDO::FETCH_ASSOC);
+              fwrite(STDERR, "$tabla: " . count($filas) . " filas\n");
+              foreach (array_chunk($filas, 200) as $lote) {
+                  $cols = '`' . implode('`, `', array_keys($lote[0])) . '`';
+                  $vals = array_map(fn ($f) => '(' . implode(', ', array_map($q, $f)) . ')', $lote);
+                  echo "INSERT IGNORE INTO `$tabla` ($cols) VALUES\n" . implode(",\n", $vals) . ";\n";
+              }
+          }
+          echo "SET FOREIGN_KEY_CHECKS=1;\n";
+          PHPCODE
+          php /tmp/exportar.php > datos.sql
 
-            # ---------- 2. Dependencias ----------
-            $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
-
-            # ---------- 3. Archivo .env (solo la primera vez) ----------
-            if [ ! -f .env ]; then
-              echo ">> Creando .env de producción"
-              cp .env.example .env
-              cat > /tmp/rym-setenv.php <<'PHPCODE'
-            <?php
-            // Uso: php rym-setenv.php CLAVE VALOR  (reemplaza o agrega la línea en .env)
-            [$s, $clave, $valor] = $argv;
-            if ($valor !== '' && preg_match('/[\s#"\'\\\\$]/', $valor)) {
-                $valor = '"' . addcslashes($valor, "\"\\$") . '"';
-            }
-            $env = file_get_contents('.env');
-            $linea = $clave . '=' . $valor;
-            $patron = '/^#?\s*' . preg_quote($clave, '/') . '=.*$/m';
-            $env = preg_match($patron, $env)
-                ? preg_replace_callback($patron, fn () => $linea, $env, 1)
-                : rtrim($env) . PHP_EOL . $linea . PHP_EOL;
-            file_put_contents('.env', $env);
-            PHPCODE
-              set_env() { $PHP /tmp/rym-setenv.php "$1" "$2"; }
-              set_env APP_ENV production
-              set_env APP_DEBUG false
-              set_env APP_URL "https://$DOMINIO"
-              set_env LOG_LEVEL error
-              set_env DB_CONNECTION mysql
-              set_env DB_HOST 127.0.0.1
-              set_env DB_PORT 3306
-              set_env DB_DATABASE "$DB_NAME"
-              set_env DB_USERNAME "$DB_USER"
-              set_env DB_PASSWORD "$DB_PASSWORD"
-              rm -f /tmp/rym-setenv.php
-              chmod 600 .env
-              $PHP artisan key:generate --force
-            fi
-
-            # ---------- 4. Base de datos ----------
-            if [ "$PRIMERA_VEZ" = 1 ]; then
-              $PHP artisan migrate --seed --force
-            else
-              $PHP artisan migrate --force
-            fi
-
-            # Si todavía no hay personajes, importamos los datos de la API
-            CANTIDAD=$($PHP artisan tinker --execute="echo App\Models\Character::count();" 2>/dev/null | tail -n1 || echo 0)
-            if [ "${CANTIDAD:-0}" = "0" ]; then
-              echo ">> Importando datos desde The Rick and Morty API"
-              $PHP artisan rick-morty:import
-            fi
-
-            # ---------- 5. Carpeta pública ----------
-            # El subdominio publica su carpeta: la reemplazamos por un enlace a public/ de Laravel.
-            # La carpeta original (solo tenía default.php de Hostinger) se guarda como respaldo fuera de public_html.
-            if [ ! -L "$DOCROOT" ]; then
-              echo ">> Apuntando $DOCROOT a $APP/public"
-              if [ -e "$DOCROOT" ]; then
-                mv "$DOCROOT" "$HOME/apps/rickymortyexplorer_docroot_original_$(date +%Y%m%d%H%M%S)"
-              fi
-              ln -s "$APP/public" "$DOCROOT"
-            fi
-
-            # ---------- 6. Caché y salida ----------
-            $PHP artisan optimize:clear
-            $PHP artisan config:cache
-            $PHP artisan route:cache
-            $PHP artisan view:cache
-            $PHP artisan up
-
-            echo ">> Despliegue terminado: $(git log -1 --format='%h %s')"
+      - name: Cargar los datos en Hostinger
+        if: steps.servidor.outputs.personajes == '0'
+        run: |
+          scp datos.sql hostinger:rym-datos.sql
+          ssh hostinger 'bash -s' <<'REMOTO'
+          set -euo pipefail
+          cd "$HOME/apps/rickymortyexplorer"
+          /opt/alt/php84/usr/bin/php artisan tinker --execute='DB::unprepared(file_get_contents(getenv("HOME")."/rym-datos.sql")); echo "Personajes cargados: ".App\Models\Character::count();'
+          rm -f "$HOME/rym-datos.sql"
+          /opt/alt/php84/usr/bin/php artisan cache:clear
+          REMOTO

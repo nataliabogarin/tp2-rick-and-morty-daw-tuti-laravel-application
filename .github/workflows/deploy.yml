@@ -4,8 +4,8 @@
 #   1) corre las pruebas en GitHub;
 #   2) si pasan, se conecta por SSH a Hostinger y actualiza la aplicación;
 #   3) si la base todavía no tiene personajes, descarga los datos de la API
-#      desde GitHub y los carga en la base de Hostinger. (La API rechaza las
-#      consultas que salen de la IP compartida de Hostinger con el error 429.)
+#      desde GitHub, despacio y reintentando ante el error 429 (límite de
+#      consultas de la API), y los carga en la base de Hostinger.
 #
 # La primera vez también instala todo: clona el repositorio, crea el .env,
 # genera la clave, crea las tablas con el administrador inicial y apunta el
@@ -199,34 +199,93 @@ jobs:
           extensions: mbstring, pdo_sqlite, sqlite3
           coverage: none
 
-      - name: Importar en una base temporal y generar el SQL
+      - name: Descargar los datos de la API y generar el SQL
         if: steps.servidor.outputs.personajes == '0'
+        timeout-minutes: 40
         run: |
-          composer install --no-interaction --prefer-dist --no-progress
-          cp .env.example .env
-          php artisan key:generate
-          touch database/database.sqlite
-          php artisan migrate --force
-          php artisan rick-morty:import
-
-          # Exportamos las tablas del explorador como INSERTs para MySQL
-          cat > /tmp/exportar.php <<'PHPCODE'
+          cat > /tmp/descargar.php <<'PHPCODE'
           <?php
-          $pdo = new PDO('sqlite:database/database.sqlite');
-          $q = fn ($v) => $v === null ? 'NULL' : (is_int($v) || is_float($v) ? $v : "'" . str_replace(["\\", "'"], ["\\\\", "\\'"], $v) . "'");
-          echo "SET FOREIGN_KEY_CHECKS=0;\n";
-          foreach (['location', 'episode', 'characters', 'characters_episode'] as $tabla) {
-              $filas = $pdo->query("SELECT * FROM `$tabla`")->fetchAll(PDO::FETCH_ASSOC);
-              fwrite(STDERR, "$tabla: " . count($filas) . " filas\n");
+          // Descarga los datos de The Rick and Morty API despacio (con pausas y reintentos ante el error 429)
+          // y genera los INSERT para MySQL con el mismo mapeo que el comando rick-morty:import.
+          $base = getenv('API_BASE') ?: 'https://rickandmortyapi.com/api';
+          $pausa = (float) (getenv('PAUSA') ?: 1.5);          // segundos entre consultas
+          $esperas = [30, 60, 120, 240, 300, 300];             // segundos de espera ante un 429
+
+          function obtener(string $url, float $pausa, array $esperas): array
+          {
+              foreach (array_merge([0], $esperas) as $intento => $espera) {
+                  if ($espera > 0) {
+                      fwrite(STDERR, "   429: esperando {$espera}s antes de reintentar...\n");
+                      sleep($espera);
+                  }
+                  $ctx = stream_context_create(['http' => ['timeout' => 30, 'ignore_errors' => true, 'header' => "User-Agent: tp2-rick-and-morty-deploy\r\n"]]);
+                  $cuerpo = @file_get_contents($url, false, $ctx);
+                  $estado = isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m) ? (int) $m[1] : 0;
+                  usleep((int) ($pausa * 1_000_000));
+                  if ($estado === 200) {
+                      return json_decode($cuerpo, true, flags: JSON_THROW_ON_ERROR);
+                  }
+                  if ($estado !== 429 && $estado < 500 && $estado !== 0) {
+                      throw new RuntimeException("Error HTTP $estado en $url");
+                  }
+              }
+              throw new RuntimeException("La API siguió respondiendo 429 en $url");
+          }
+
+          function todos(string $recurso, string $base, float $pausa, array $esperas): array
+          {
+              $resultados = [];
+              $url = "$base/$recurso";
+              while ($url !== null) {
+                  $datos = obtener($url, $pausa, $esperas);
+                  $resultados = array_merge($resultados, $datos['results']);
+                  fwrite(STDERR, sprintf("%s: %d descargados\n", $recurso, count($resultados)));
+                  $url = $datos['info']['next'];
+              }
+              return $resultados;
+          }
+
+          $id = fn (string $url): ?int => $url === '' ? null : (int) basename($url);
+          $q = fn ($v) => $v === null ? 'NULL' : (is_int($v) ? (string) $v : "'" . str_replace(["\\", "'"], ["\\\\", "\\'"], (string) $v) . "'");
+          $insert = function (string $tabla, array $filas) use ($q): string {
+              if (! $filas) return '';
+              $sql = '';
               foreach (array_chunk($filas, 200) as $lote) {
                   $cols = '`' . implode('`, `', array_keys($lote[0])) . '`';
                   $vals = array_map(fn ($f) => '(' . implode(', ', array_map($q, $f)) . ')', $lote);
-                  echo "INSERT IGNORE INTO `$tabla` ($cols) VALUES\n" . implode(",\n", $vals) . ";\n";
+                  $sql .= "INSERT IGNORE INTO `$tabla` ($cols) VALUES\n" . implode(",\n", $vals) . ";\n";
+              }
+              return $sql;
+          };
+
+          $ubicaciones = todos('location', $base, $pausa, $esperas);
+          $episodios = todos('episode', $base, $pausa, $esperas);
+          $personajes = todos('character', $base, $pausa, $esperas);
+
+          $relaciones = [];
+          foreach ($personajes as $p) {
+              foreach ($p['episode'] as $url) {
+                  if ($e = $id($url)) {
+                      $relaciones[] = ['id_character' => $p['id'], 'id_episode' => $e];
+                  }
               }
           }
+
+          echo "SET FOREIGN_KEY_CHECKS=0;\n";
+          echo $insert('location', array_map(fn ($l) => ['id_location' => $l['id'], 'name' => $l['name'], 'type' => $l['type'], 'dimension' => $l['dimension']], $ubicaciones));
+          echo $insert('episode', array_map(fn ($e) => ['id_episode' => $e['id'], 'name' => $e['name'], 'air_date' => $e['air_date'], 'episode' => $e['episode']], $episodios));
+          echo $insert('characters', array_map(fn ($p) => [
+              'id_character' => $p['id'], 'name' => $p['name'], 'status' => $p['status'], 'species' => $p['species'],
+              'type' => $p['type'], 'gender' => $p['gender'], 'image' => $p['image'],
+              'id_origin_location' => $id($p['origin']['url']), 'id_current_location' => $id($p['location']['url']),
+          ], $personajes));
+          echo $insert('characters_episode', $relaciones);
           echo "SET FOREIGN_KEY_CHECKS=1;\n";
+
+          fwrite(STDERR, sprintf("Listo: %d ubicaciones, %d episodios, %d personajes, %d relaciones\n",
+              count($ubicaciones), count($episodios), count($personajes), count($relaciones)));
           PHPCODE
-          php /tmp/exportar.php > datos.sql
+          php /tmp/descargar.php > datos.sql
 
       - name: Cargar los datos en Hostinger
         if: steps.servidor.outputs.personajes == '0'

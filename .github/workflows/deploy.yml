@@ -1,0 +1,300 @@
+# Despliegue automático en Hostinger (rickymortyexplorer.nbdev.ar).
+#
+# Cada push a main:
+#   1) corre las pruebas en GitHub;
+#   2) si pasan, se conecta por SSH a Hostinger y actualiza la aplicación;
+#   3) si la base todavía no tiene personajes, descarga los datos de la API
+#      desde GitHub, despacio y reintentando ante el error 429 (límite de
+#      consultas de la API), y los carga en la base de Hostinger.
+#
+# La primera vez también instala todo: clona el repositorio, crea el .env,
+# genera la clave, crea las tablas con el administrador inicial y apunta el
+# subdominio a la carpeta public/.
+#
+# Secretos necesarios (Settings → Secrets and variables → Actions):
+#   HOSTINGER_HOST, HOSTINGER_PORT, HOSTINGER_USER, HOSTINGER_SSH_KEY, DB_PASSWORD
+name: Deploy a Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Evita dos despliegues al mismo tiempo
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+env:
+  # Huella de la clave del servidor (hPanel → Acceso SSH), para no conectarnos a un servidor falso
+  HOST_FINGERPRINT: SHA256:BasCT+DeuZlOSmyPwr1r46VaJ8Yref7jth4IFEycjqM
+
+jobs:
+  tests:
+    name: Pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Ejecutar pruebas
+        run: php artisan test
+
+  deploy:
+    name: Desplegar
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar SSH
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_USER }}
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/hostinger && chmod 600 ~/.ssh/hostinger
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          # Verificamos que la clave del servidor sea la que muestra hPanel
+          ssh-keygen -lf ~/.ssh/known_hosts | grep -q "$HOST_FINGERPRINT" \
+            || { echo "::error::La huella del servidor no coincide con la de hPanel"; exit 1; }
+          cat > ~/.ssh/config <<EOF
+          Host hostinger
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/hostinger
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Actualizar el servidor
+        id: servidor
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          {
+            printf 'DB_PASSWORD=%q\n' "$DB_PASSWORD"
+            printf 'REPO_URL=%q\n' "$REPO_URL"
+            cat <<'REMOTO'
+          set -euo pipefail
+
+          # ---------- Configuración ----------
+          DOMINIO=rickymortyexplorer.nbdev.ar
+          APP="$HOME/apps/rickymortyexplorer"                              # código de Laravel (fuera de toda carpeta pública)
+          DOCROOT="$HOME/domains/nbdev.ar/public_html/rickymortyexplorer"  # carpeta que publica el subdominio
+          DB_NAME=u449951669_rym
+          DB_USER=u449951669_rym
+          # En Hostinger la PHP de SSH no es la que se elige en hPanel: usamos la 8.4 explícitamente
+          PHP=/opt/alt/php84/usr/bin/php
+          COMPOSER="$PHP /usr/local/bin/composer2"
+
+          # ---------- 1. Código ----------
+          PRIMERA_VEZ=0
+          if [ ! -d "$APP/.git" ]; then
+            echo ">> Primera instalación: clonando el repositorio"
+            mkdir -p "$(dirname "$APP")"
+            git clone "$REPO_URL" "$APP"
+            PRIMERA_VEZ=1
+          fi
+          cd "$APP"
+
+          # Si algo falla, el sitio no queda en modo mantenimiento
+          trap '$PHP artisan up >/dev/null 2>&1 || true' EXIT
+          [ -f .env ] && { $PHP artisan down || true; }
+
+          git fetch --prune origin main
+          git reset --hard origin/main
+
+          # ---------- 2. Dependencias ----------
+          $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+          # ---------- 3. Archivo .env (solo la primera vez) ----------
+          if [ ! -f .env ]; then
+            echo ">> Creando .env de producción"
+            cp .env.example .env
+            cat > /tmp/rym-setenv.php <<'PHPCODE'
+          <?php
+          // Uso: php rym-setenv.php CLAVE VALOR  (reemplaza o agrega la línea en .env)
+          [$s, $clave, $valor] = $argv;
+          if ($valor !== '' && preg_match('/[\s#"\'\\\\$]/', $valor)) {
+              $valor = '"' . addcslashes($valor, "\"\\$") . '"';
+          }
+          $env = file_get_contents('.env');
+          $linea = $clave . '=' . $valor;
+          $patron = '/^#?\s*' . preg_quote($clave, '/') . '=.*$/m';
+          $env = preg_match($patron, $env)
+              ? preg_replace_callback($patron, fn () => $linea, $env, 1)
+              : rtrim($env) . PHP_EOL . $linea . PHP_EOL;
+          file_put_contents('.env', $env);
+          PHPCODE
+            set_env() { $PHP /tmp/rym-setenv.php "$1" "$2"; }
+            set_env APP_ENV production
+            set_env APP_DEBUG false
+            set_env APP_URL "https://$DOMINIO"
+            set_env LOG_LEVEL error
+            set_env DB_CONNECTION mysql
+            set_env DB_HOST 127.0.0.1
+            set_env DB_PORT 3306
+            set_env DB_DATABASE "$DB_NAME"
+            set_env DB_USERNAME "$DB_USER"
+            set_env DB_PASSWORD "$DB_PASSWORD"
+            rm -f /tmp/rym-setenv.php
+            chmod 600 .env
+            $PHP artisan key:generate --force
+          fi
+
+          # ---------- 4. Base de datos ----------
+          # El seeder solo crea el administrador si todavía no existe ninguno
+          $PHP artisan migrate --seed --force
+
+          # ---------- 5. Carpeta pública ----------
+          # El subdominio publica su carpeta: la reemplazamos por un enlace a public/ de Laravel.
+          # La carpeta original (solo tenía default.php de Hostinger) se guarda como respaldo.
+          if [ ! -L "$DOCROOT" ]; then
+            echo ">> Apuntando $DOCROOT a $APP/public"
+            if [ -e "$DOCROOT" ]; then
+              mv "$DOCROOT" "$HOME/apps/rickymortyexplorer_docroot_original_$(date +%Y%m%d%H%M%S)"
+            fi
+            ln -s "$APP/public" "$DOCROOT"
+          fi
+
+          # ---------- 6. Caché ----------
+          $PHP artisan optimize:clear
+          $PHP artisan config:cache
+          $PHP artisan route:cache
+          $PHP artisan view:cache
+          $PHP artisan up
+
+          # Informamos a GitHub cuántos personajes hay, para saber si hace falta importar
+          echo "PERSONAJES=$($PHP artisan tinker --execute='echo App\Models\Character::count();' | tail -n1)"
+          echo ">> Servidor actualizado: $(git log -1 --format='%h %s')"
+          REMOTO
+          } | ssh hostinger 'bash -s' | tee salida.log
+
+          PERSONAJES=$(grep -o '^PERSONAJES=[0-9]*' salida.log | cut -d= -f2)
+          echo "personajes=${PERSONAJES:-0}" >> "$GITHUB_OUTPUT"
+
+      # ---------- Importación de datos (solo si la base está vacía) ----------
+      - uses: shivammathur/setup-php@v2
+        if: steps.servidor.outputs.personajes == '0'
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Descargar los datos de la API y generar el SQL
+        if: steps.servidor.outputs.personajes == '0'
+        timeout-minutes: 40
+        run: |
+          cat > /tmp/descargar.php <<'PHPCODE'
+          <?php
+          // Descarga los datos de The Rick and Morty API despacio (con pausas y reintentos ante el error 429)
+          // y genera los INSERT para MySQL con el mismo mapeo que el comando rick-morty:import.
+          $base = getenv('API_BASE') ?: 'https://rickandmortyapi.com/api';
+          $pausa = (float) (getenv('PAUSA') ?: 1.5);          // segundos entre consultas
+          $esperas = [30, 60, 120, 240, 300, 300];             // segundos de espera ante un 429
+
+          function obtener(string $url, float $pausa, array $esperas): array
+          {
+              foreach (array_merge([0], $esperas) as $intento => $espera) {
+                  if ($espera > 0) {
+                      fwrite(STDERR, "   429: esperando {$espera}s antes de reintentar...\n");
+                      sleep($espera);
+                  }
+                  $ctx = stream_context_create(['http' => ['timeout' => 30, 'ignore_errors' => true, 'header' => "User-Agent: tp2-rick-and-morty-deploy\r\n"]]);
+                  $cuerpo = @file_get_contents($url, false, $ctx);
+                  $estado = isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m) ? (int) $m[1] : 0;
+                  usleep((int) ($pausa * 1_000_000));
+                  if ($estado === 200) {
+                      return json_decode($cuerpo, true, flags: JSON_THROW_ON_ERROR);
+                  }
+                  if ($estado !== 429 && $estado < 500 && $estado !== 0) {
+                      throw new RuntimeException("Error HTTP $estado en $url");
+                  }
+              }
+              throw new RuntimeException("La API siguió respondiendo 429 en $url");
+          }
+
+          function todos(string $recurso, string $base, float $pausa, array $esperas): array
+          {
+              $resultados = [];
+              $url = "$base/$recurso";
+              while ($url !== null) {
+                  $datos = obtener($url, $pausa, $esperas);
+                  $resultados = array_merge($resultados, $datos['results']);
+                  fwrite(STDERR, sprintf("%s: %d descargados\n", $recurso, count($resultados)));
+                  $url = $datos['info']['next'];
+              }
+              return $resultados;
+          }
+
+          $id = fn (string $url): ?int => $url === '' ? null : (int) basename($url);
+          $q = fn ($v) => $v === null ? 'NULL' : (is_int($v) ? (string) $v : "'" . str_replace(["\\", "'"], ["\\\\", "\\'"], (string) $v) . "'");
+          $insert = function (string $tabla, array $filas) use ($q): string {
+              if (! $filas) return '';
+              $sql = '';
+              foreach (array_chunk($filas, 200) as $lote) {
+                  $cols = '`' . implode('`, `', array_keys($lote[0])) . '`';
+                  $vals = array_map(fn ($f) => '(' . implode(', ', array_map($q, $f)) . ')', $lote);
+                  $sql .= "INSERT IGNORE INTO `$tabla` ($cols) VALUES\n" . implode(",\n", $vals) . ";\n";
+              }
+              return $sql;
+          };
+
+          $ubicaciones = todos('location', $base, $pausa, $esperas);
+          $episodios = todos('episode', $base, $pausa, $esperas);
+          $personajes = todos('character', $base, $pausa, $esperas);
+
+          $relaciones = [];
+          foreach ($personajes as $p) {
+              foreach ($p['episode'] as $url) {
+                  if ($e = $id($url)) {
+                      $relaciones[] = ['id_character' => $p['id'], 'id_episode' => $e];
+                  }
+              }
+          }
+
+          echo "SET FOREIGN_KEY_CHECKS=0;\n";
+          echo $insert('location', array_map(fn ($l) => ['id_location' => $l['id'], 'name' => $l['name'], 'type' => $l['type'], 'dimension' => $l['dimension']], $ubicaciones));
+          echo $insert('episode', array_map(fn ($e) => ['id_episode' => $e['id'], 'name' => $e['name'], 'air_date' => $e['air_date'], 'episode' => $e['episode']], $episodios));
+          echo $insert('characters', array_map(fn ($p) => [
+              'id_character' => $p['id'], 'name' => $p['name'], 'status' => $p['status'], 'species' => $p['species'],
+              'type' => $p['type'], 'gender' => $p['gender'], 'image' => $p['image'],
+              'id_origin_location' => $id($p['origin']['url']), 'id_current_location' => $id($p['location']['url']),
+          ], $personajes));
+          echo $insert('characters_episode', $relaciones);
+          echo "SET FOREIGN_KEY_CHECKS=1;\n";
+
+          fwrite(STDERR, sprintf("Listo: %d ubicaciones, %d episodios, %d personajes, %d relaciones\n",
+              count($ubicaciones), count($episodios), count($personajes), count($relaciones)));
+          PHPCODE
+          php /tmp/descargar.php > datos.sql
+
+      - name: Cargar los datos en Hostinger
+        if: steps.servidor.outputs.personajes == '0'
+        run: |
+          scp datos.sql hostinger:rym-datos.sql
+          ssh hostinger 'bash -s' <<'REMOTO'
+          set -euo pipefail
+          cd "$HOME/apps/rickymortyexplorer"
+          /opt/alt/php84/usr/bin/php artisan tinker --execute='DB::unprepared(file_get_contents(getenv("HOME")."/rym-datos.sql")); echo "Personajes cargados: ".App\Models\Character::count();'
+          rm -f "$HOME/rym-datos.sql"
+          /opt/alt/php84/usr/bin/php artisan cache:clear
+          REMOTO

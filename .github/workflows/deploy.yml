@@ -1,0 +1,162 @@
+# Despliegue automático en Hostinger (rickymortyexplorer.nbdev.ar).
+#
+# Cada push a main:
+#   1) corre las pruebas en GitHub;
+#   2) si pasan, se conecta por SSH a Hostinger y actualiza la aplicación.
+#
+# La primera vez también instala todo: clona el repositorio, crea el .env,
+# genera la clave, crea las tablas con el administrador inicial, importa los
+# datos de la API y apunta el subdominio a la carpeta public/.
+#
+# Secretos necesarios (Settings → Secrets and variables → Actions):
+#   HOSTINGER_HOST, HOSTINGER_PORT, HOSTINGER_USER, HOSTINGER_SSH_KEY, DB_PASSWORD
+name: Deploy a Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Evita dos despliegues al mismo tiempo
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Ejecutar pruebas
+        run: php artisan test
+
+  deploy:
+    name: Desplegar
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizar el servidor por SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REPO_URL: https://github.com/${{ github.repository }}.git
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          envs: DB_PASSWORD,REPO_URL
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+
+            # ---------- Configuración ----------
+            DOMINIO=rickymortyexplorer.nbdev.ar
+            APP="$HOME/apps/rickymortyexplorer"                          # código de Laravel (fuera de toda carpeta pública)
+            DOCROOT="$HOME/domains/nbdev.ar/public_html/rickymortyexplorer"  # carpeta que publica el subdominio
+            DB_NAME=u449951669_rym
+            DB_USER=u449951669_rym
+            # En Hostinger la PHP de SSH no es la que se elige en hPanel: usamos la 8.4 explícitamente
+            PHP=/opt/alt/php84/usr/bin/php
+            COMPOSER="$PHP /usr/local/bin/composer2"
+
+            # ---------- 1. Código ----------
+            PRIMERA_VEZ=0
+            if [ ! -d "$APP/.git" ]; then
+              echo ">> Primera instalación: clonando el repositorio"
+              mkdir -p "$(dirname "$APP")"
+              git clone "$REPO_URL" "$APP"
+              PRIMERA_VEZ=1
+            fi
+            cd "$APP"
+            [ "$PRIMERA_VEZ" = 1 ] || $PHP artisan down || true
+            git fetch --prune origin main
+            git reset --hard origin/main
+
+            # ---------- 2. Dependencias ----------
+            $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+            # ---------- 3. Archivo .env (solo la primera vez) ----------
+            if [ ! -f .env ]; then
+              echo ">> Creando .env de producción"
+              cp .env.example .env
+              cat > /tmp/rym-setenv.php <<'PHPCODE'
+            <?php
+            // Uso: php rym-setenv.php CLAVE VALOR  (reemplaza o agrega la línea en .env)
+            [$s, $clave, $valor] = $argv;
+            if ($valor !== '' && preg_match('/[\s#"\'\\\\$]/', $valor)) {
+                $valor = '"' . addcslashes($valor, "\"\\$") . '"';
+            }
+            $env = file_get_contents('.env');
+            $linea = $clave . '=' . $valor;
+            $patron = '/^#?\s*' . preg_quote($clave, '/') . '=.*$/m';
+            $env = preg_match($patron, $env)
+                ? preg_replace_callback($patron, fn () => $linea, $env, 1)
+                : rtrim($env) . PHP_EOL . $linea . PHP_EOL;
+            file_put_contents('.env', $env);
+            PHPCODE
+              set_env() { $PHP /tmp/rym-setenv.php "$1" "$2"; }
+              set_env APP_ENV production
+              set_env APP_DEBUG false
+              set_env APP_URL "https://$DOMINIO"
+              set_env LOG_LEVEL error
+              set_env DB_CONNECTION mysql
+              set_env DB_HOST 127.0.0.1
+              set_env DB_PORT 3306
+              set_env DB_DATABASE "$DB_NAME"
+              set_env DB_USERNAME "$DB_USER"
+              set_env DB_PASSWORD "$DB_PASSWORD"
+              rm -f /tmp/rym-setenv.php
+              chmod 600 .env
+              $PHP artisan key:generate --force
+            fi
+
+            # ---------- 4. Base de datos ----------
+            if [ "$PRIMERA_VEZ" = 1 ]; then
+              $PHP artisan migrate --seed --force
+            else
+              $PHP artisan migrate --force
+            fi
+
+            # Si todavía no hay personajes, importamos los datos de la API
+            CANTIDAD=$($PHP artisan tinker --execute="echo App\Models\Character::count();" 2>/dev/null | tail -n1 || echo 0)
+            if [ "${CANTIDAD:-0}" = "0" ]; then
+              echo ">> Importando datos desde The Rick and Morty API"
+              $PHP artisan rick-morty:import
+            fi
+
+            # ---------- 5. Carpeta pública ----------
+            # El subdominio publica su carpeta: la reemplazamos por un enlace a public/ de Laravel.
+            # La carpeta original (solo tenía default.php de Hostinger) se guarda como respaldo fuera de public_html.
+            if [ ! -L "$DOCROOT" ]; then
+              echo ">> Apuntando $DOCROOT a $APP/public"
+              if [ -e "$DOCROOT" ]; then
+                mv "$DOCROOT" "$HOME/apps/rickymortyexplorer_docroot_original_$(date +%Y%m%d%H%M%S)"
+              fi
+              ln -s "$APP/public" "$DOCROOT"
+            fi
+
+            # ---------- 6. Caché y salida ----------
+            $PHP artisan optimize:clear
+            $PHP artisan config:cache
+            $PHP artisan route:cache
+            $PHP artisan view:cache
+            $PHP artisan up
+
+            echo ">> Despliegue terminado: $(git log -1 --format='%h %s')"

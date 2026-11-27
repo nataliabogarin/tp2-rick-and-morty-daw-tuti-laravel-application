@@ -1,0 +1,63 @@
+{{-- Rick y Morty animados, conservando la estructura del TP1. --}}
+<div class="personajes-animados" aria-hidden="true">
+    <div class="rick-container">
+        <div class="head-container">
+            <div class="head">
+                <div class="brow-container"><div class="brow"></div></div>
+                <div class="eyes-container">
+                    <div class="left eye"><div class="pupil"></div></div>
+                    <div class="right eye"><div class="pupil"></div></div>
+                </div>
+                <div class="eyebags-container">
+                    <div class="left eyebag"></div>
+                    <div class="right eyebag"></div>
+                </div>
+                <div class="nose"></div>
+                <div class="mouth-container">
+                    <div class="mouth"></div>
+                    <div class="spittle"></div>
+                    <div class="spittle-arcs"></div>
+                </div>
+            </div>
+            <div class="ear-container">
+                <div class="left ear"></div>
+                <div class="right ear"></div>
+            </div>
+            <div class="hair-container"><div class="hair"></div></div>
+            <div class="neck"></div>
+        </div>
+        <div class="body-container">
+            <div class="body">
+                <div class="shirt">
+                    <div class="flaps-container">
+                        <div class="left flap"></div>
+                        <div class="right flap"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="morty-container">
+        <div class="head-container">
+            <div class="head">
+                <div class="brows-container">
+                    <div class="left brow"></div>
+                    <div class="right brow"></div>
+                </div>
+                <div class="eyes-container">
+                    <div class="left eye"><div class="pupil"></div></div>
+                    <div class="right eye"><div class="pupil"></div></div>
+                </div>
+                <div class="nose"></div>
+                <div class="mouth-container"><div class="mouth"></div></div>
+            </div>
+            <div class="ear-container">
+                <div class="left ear"></div>
+                <div class="right ear"></div>
+            </div>
+            <div class="hair-container"><div class="hair"></div></div>
+        </div>
+        <div class="body-container"><div class="body"></div></div>
+    </div>
+</div>

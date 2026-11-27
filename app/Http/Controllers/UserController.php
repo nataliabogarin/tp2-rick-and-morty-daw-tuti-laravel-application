@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
+    // Listado de usuarios para el panel de administración
     public function index()
     {
-        $users = User::all();
+        $users = User::orderBy('name')->paginate(20);
+
         return view('users.index', compact('users'));
     }
 

@@ -2,70 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Location;
 
 class LocationController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Listado público de ubicaciones, paginado de a 20.
      */
     public function index()
     {
-         $locations = Location::all();
+        $locations = Location::orderBy('name')->paginate(20);
 
-        // Retornamos una vista y le pasamos los datos
         return view('location.index', compact('locations'));
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
+     * Detalle de una ubicación con los personajes relacionados.
      */
     public function show(string $id)
     {
-        // Cargamos tanto los personajes de origen como los actuales
-        $location = Location::with(['originCharacters', 'currentCharacters'])->findOrFail($id);
+        $location = Location::findOrFail($id);
 
-        return view('location.show', compact('location'));
-        }
+        // Algunas ubicaciones (como la Tierra) tienen cientos de personajes, por eso
+        // paginamos las dos listas. Cada una usa su propio parámetro en la URL
+        // para poder avanzar de página en una sin mover la otra.
+        $originCharacters = $location->originCharacters()
+            ->orderBy('name')
+            ->paginate(20, ['*'], 'origen_page');
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
+        $currentCharacters = $location->currentCharacters()
+            ->orderBy('name')
+            ->paginate(20, ['*'], 'actuales_page');
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return view('location.show', compact('location', 'originCharacters', 'currentCharacters'));
     }
 }

@@ -1,4 +1,3 @@
-
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -32,14 +31,14 @@ return new class extends Migration
             $table->integer('id_current_location')->nullable();
 
             $table->foreign('id_origin_location')
-                  ->references('id_location')
-                  ->on('location')
-                  ->nullOnDelete();
+                ->references('id_location')
+                ->on('location')
+                ->nullOnDelete();
 
-           $table->foreign('id_current_location')
-                 ->references('id_location')
-                 ->on('location')
-                 ->nullOnDelete();
+            $table->foreign('id_current_location')
+                ->references('id_location')
+                ->on('location')
+                ->nullOnDelete();
         });
 
         // Tabla episode
@@ -58,14 +57,14 @@ return new class extends Migration
             $table->primary(['id_character', 'id_episode']);
 
             $table->foreign('id_character')
-                  ->references('id_character')
-                  ->on('characters')
-                  ->cascadeOnDelete();
+                ->references('id_character')
+                ->on('characters')
+                ->cascadeOnDelete();
 
-           $table->foreign('id_episode')
-                  ->references('id_episode')
-                  ->on('episode')
-                  ->cascadeOnDelete();
+            $table->foreign('id_episode')
+                ->references('id_episode')
+                ->on('episode')
+                ->cascadeOnDelete();
         });
     }
 

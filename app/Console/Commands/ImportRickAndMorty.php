@@ -27,7 +27,7 @@ class ImportRickAndMorty extends Command
 
             DB::transaction(function () use ($locations, $episodes, $characters): void {
                 if ($this->option('fresh')) {
-                    DB::table('character_episode')->delete();
+                    DB::table('characters_episode')->delete();
                     Character::query()->delete();
                     Episode::query()->delete();
                     Location::query()->delete();
@@ -35,29 +35,29 @@ class ImportRickAndMorty extends Command
 
                 Location::query()->upsert(
                     collect($locations)->map(fn (array $location): array => [
-                        'id' => $location['id'],
+                        'id_location' => $location['id'],
                         'name' => $location['name'],
                         'type' => $location['type'],
                         'dimension' => $location['dimension'],
                     ])->all(),
-                    ['id'],
+                    ['id_location'],
                     ['name', 'type', 'dimension'],
                 );
 
                 Episode::query()->upsert(
                     collect($episodes)->map(fn (array $episode): array => [
-                        'id' => $episode['id'],
+                        'id_episode' => $episode['id'],
                         'name' => $episode['name'],
                         'air_date' => $episode['air_date'],
                         'episode' => $episode['episode'],
                     ])->all(),
-                    ['id'],
+                    ['id_episode'],
                     ['name', 'air_date', 'episode'],
                 );
 
                 foreach ($characters as $characterData) {
                     $character = Character::query()->updateOrCreate(
-                        ['id' => $characterData['id']],
+                        ['id_character' => $characterData['id']],
                         [
                             'name' => $characterData['name'],
                             'status' => $characterData['status'],
@@ -65,8 +65,8 @@ class ImportRickAndMorty extends Command
                             'type' => $characterData['type'],
                             'gender' => $characterData['gender'],
                             'image' => $characterData['image'],
-                            'origin_location_id' => $this->idFromUrl($characterData['origin']['url']),
-                            'current_location_id' => $this->idFromUrl($characterData['location']['url']),
+                            'id_origin_location' => $this->idFromUrl($characterData['origin']['url']),
+                            'id_current_location' => $this->idFromUrl($characterData['location']['url']),
                         ],
                     );
 

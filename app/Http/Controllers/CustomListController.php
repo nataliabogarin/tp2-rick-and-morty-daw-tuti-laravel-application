@@ -16,6 +16,7 @@ class CustomListController extends Controller
         $user = Auth::user();
 
         $lists = $user->customLists()->withCount('items')->get();
+
         return view('listas.index', compact('lists'));
     }
 
@@ -29,6 +30,27 @@ class CustomListController extends Controller
 
         /** @var User $user */
         $user = Auth::user();
+
+        // Permite crear una lista y agregar un elemento en un solo paso
+        if ($request->filled('item_id')) {
+            $request->validate([
+                'item_id' => [
+                    'integer',
+                    $validated['type'] === 'character'
+                        ? 'exists:characters,id_character'
+                        : 'exists:episode,id_episode',
+                ],
+            ], [
+                'item_id.exists' => 'El elemento no existe o no corresponde al tipo de esta lista.',
+            ]);
+
+            $list = $user->customLists()->create($validated);
+            $list->items()->create([
+                'item_id' => $request->integer('item_id'),
+            ]);
+
+            return back()->with('success', "Lista \"{$list->name}\" creada y elemento agregado.");
+        }
 
         $user->customLists()->create($validated);
 
@@ -46,6 +68,20 @@ class CustomListController extends Controller
         return view('listas.show', compact('customList', 'elements'));
     }
 
+    // Renombra una lista sin modificar su tipo
+    public function update(Request $request, CustomList $customList)
+    {
+        abort_if($customList->user_id !== Auth::id(), 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+        ]);
+
+        $customList->update(['name' => $validated['name']]);
+
+        return back()->with('success', 'Lista renombrada correctamente.');
+    }
+
     // Elimina una lista completa del usuario
     public function destroy(CustomList $customList)
     {
@@ -56,20 +92,20 @@ class CustomListController extends Controller
         return redirect()->route('listas.index')->with('success', 'Lista eliminada.');
     }
 
-    // Agrega un personaje o episodio a una lista (evitando duplicados)
+    // Agrega un personaje o episodio a una lista evitando duplicados
     public function addItem(Request $request, CustomList $customList)
     {
         abort_if($customList->user_id !== Auth::id(), 403);
 
         // Valida la existencia del elemento según el tipo de lista
+        $tablaSegunTipo = $customList->type === 'character'
+            ? 'exists:characters,id_character'
+            : 'exists:episode,id_episode';
+
         $request->validate([
-            'item_id' => [
-                'required',
-                'integer',
-                $customList->type === 'character'
-                    ? 'exists:characters,id_character'
-                    : 'exists:episode,id_episode',
-            ],
+            'item_id' => ['required', 'integer', $tablaSegunTipo],
+        ], [
+            'item_id.exists' => 'El elemento no existe o no corresponde al tipo de esta lista.',
         ]);
 
         $item = $customList->items()->firstOrCreate([
@@ -77,10 +113,10 @@ class CustomListController extends Controller
         ]);
 
         if (!$item->wasRecentlyCreated) {
-            return back()->with('error', 'Ese elemento ya estaba agregado en esta lista.');
+            return back()->with('error', "Ya estaba guardado en \"{$customList->name}\".");
         }
 
-        return back()->with('success', 'Elemento agregado a la lista.');
+        return back()->with('success', "Agregado a \"{$customList->name}\".");
     }
 
     // Quita un personaje o episodio de una lista
@@ -95,6 +131,6 @@ class CustomListController extends Controller
             return back()->with('error', 'El elemento no se encuentra en esta lista.');
         }
 
-        return back()->with('success', 'Elemento quitado de la lista.');
+        return back()->with('success', "Quitado de \"{$customList->name}\".");
     }
 }

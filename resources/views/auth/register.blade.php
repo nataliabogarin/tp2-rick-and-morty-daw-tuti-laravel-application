@@ -21,19 +21,19 @@
             @csrf
             <div class="campo">
                 <label for="name">Nombre</label>
-                <input type="text" id="name" name="name" value="{{ old('name') }}" required autofocus>
+                <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="255" autofocus>
             </div>
             <div class="campo">
                 <label for="email">Correo electrónico</label>
-                <input type="email" id="email" name="email" value="{{ old('email') }}" required>
+                <input type="email" id="email" name="email" value="{{ old('email') }}" required maxlength="255">
             </div>
             <div class="campo">
                 <label for="password">Contraseña (mínimo 8 caracteres)</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required minlength="8">
             </div>
             <div class="campo">
                 <label for="password_confirmation">Confirmar contraseña</label>
-                <input type="password" id="password_confirmation" name="password_confirmation" required>
+                <input type="password" id="password_confirmation" name="password_confirmation" required minlength="8">
             </div>
             <button type="submit" class="btn">Registrarse</button>
         </form>

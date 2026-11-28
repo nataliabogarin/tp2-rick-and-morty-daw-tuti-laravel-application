@@ -79,7 +79,7 @@
             <div class="campo">
                 {{-- La etiqueta queda solo para lectores de pantalla; el placeholder ya indica qué escribir --}}
                 <label for="nueva-lista" class="oculto-visual">Nombre de la lista</label>
-                <input type="text" id="nueva-lista" name="name" required maxlength="100" placeholder="Ej: Mis {{ $tipoTexto }} preferidos">
+                <input type="text" id="nueva-lista" name="name" value="{{ old('name') }}" required maxlength="100" placeholder="Ej: Mis {{ $tipoTexto }} preferidos">
                 @error('name') <span class="error-campo">{{ $message }}</span> @enderror
             </div>
             <button type="submit" class="btn btn-secundario">Crear y guardar</button>

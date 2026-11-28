@@ -17,6 +17,10 @@
             <div class="alerta alerta-exito">{{ session('success') }}</div>
         @endif
 
+        @if(session('error'))
+            <div class="alerta alerta-error">{{ session('error') }}</div>
+        @endif
+
         <form action="{{ route('listas.update', $customList) }}" method="POST" class="formulario form-fila">
             @csrf
             @method('PUT')

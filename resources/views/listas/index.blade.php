@@ -47,7 +47,7 @@
                         </span>
                         <span>
                             <a href="{{ route('listas.show', $list) }}" class="btn btn-secundario btn-chico">Ver / renombrar</a>
-                            <form action="{{ route('listas.destroy', $list) }}" method="POST" class="form-en-linea" onsubmit="return confirm('¿Eliminar la lista {{ $list->name }}?');">
+                            <form action="{{ route('listas.destroy', $list) }}" method="POST" class="form-en-linea" onsubmit="return confirm('¿Eliminar esta lista?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="btn btn-peligro btn-chico">Eliminar</button>

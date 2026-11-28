@@ -204,3 +204,4 @@ docs/uso-ia.md             Documentación del uso de Inteligencia Artificial
 - Natalia Bogarín
 - Claudio Laborda
 - Kareliz Pérez León
+- Cristian Hernan Marcos Nozralah

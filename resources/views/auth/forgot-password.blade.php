@@ -16,7 +16,7 @@
             @csrf
             <div class="campo">
                 <label for="email">Correo electrónico</label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" required maxlength="255" autofocus>
                 @error('email') <span class="error-campo">{{ $message }}</span> @enderror
             </div>
             <button type="submit" class="btn">Enviar enlace de recuperación</button>

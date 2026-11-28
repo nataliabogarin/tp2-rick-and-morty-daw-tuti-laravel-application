@@ -64,7 +64,7 @@ if (listaPersonajes) {
     listaPersonajes.addEventListener('mouseleave', () => clearInterval(scrollPersonajes));
 
     // Buscador: filtra la lista ignorando mayúsculas y tildes
-    const normalizar = texto => texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const normalizar = texto => texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const buscador = document.getElementById('buscadorPersonaje');
     const sinResultados = document.getElementById('sinResultados');
 
@@ -81,38 +81,62 @@ if (listaPersonajes) {
         sinResultados.style.display = coincidencias === 0 ? 'block' : 'none';
     });
 
+    // Identificador para evitar que una petición anterior sobrescriba la última selección
+    let ultimaPeticion = 0;
+
     // Al tocar un personaje pedimos sus datos en JSON a Laravel y llenamos el panel derecho
     async function verDetallePersonaje(boton) {
-        document.querySelectorAll('.btn-personaje').forEach(b => b.classList.remove('activo'));
-        boton.classList.add('activo');
+        const peticionActual = ++ultimaPeticion;
 
-        const respuesta = await fetch(boton.dataset.url, { headers: { 'Accept': 'application/json' } });
-        if (!respuesta.ok) return;
-        const datos = await respuesta.json();
+        try {
+            const respuesta = await fetch(boton.dataset.url, {
+                headers: { 'Accept': 'application/json' }
+            });
 
-        document.getElementById('panelDetalles').style.display = 'flex';
-        const imagen = document.getElementById('charImg');
+            if (!respuesta.ok) {
+                throw new Error(`Error HTTP: ${respuesta.status}`);
+            }
 
-        imagen.onerror = function () {
-           this.onerror = null;
-           this.src = this.dataset.fallback;
-        };
+            const datos = await respuesta.json();
 
-        imagen.src = datos.image;
-        document.getElementById('charName').textContent = datos.name;
+            // Ignoramos respuestas correspondientes a selecciones anteriores
+            if (peticionActual !== ultimaPeticion) return;
 
-        const estado = document.getElementById('charStatus');
-        estado.textContent = datos.status;
-        estado.className = `badge ${datos.status}`; // verde, rojo o gris según el estado
+            document.getElementById('panelDetalles').style.display = 'flex';
+            const imagen = document.getElementById('charImg');
 
-        document.getElementById('charSpecies').textContent = datos.species || '-';
-        document.getElementById('charGender').textContent = datos.gender || '-';
-        document.getElementById('charOrigin').textContent = datos.origin_name || 'Desconocido';
-        document.getElementById('charLocation').textContent = datos.location_name || 'Desconocido';
-        document.getElementById('charType').textContent = datos.type || 'Ninguno';
-        document.getElementById('charFirstEp').textContent = datos.first_episode;
-        document.getElementById('charLastEp').textContent = datos.last_episode;
-        document.getElementById('charUrl').href = datos.url;
+            imagen.onerror = function () {
+                this.onerror = null;
+                this.src = this.dataset.fallback;
+            };
+
+            imagen.src = datos.image;
+            document.getElementById('charName').textContent = datos.name;
+
+            const estado = document.getElementById('charStatus');
+            estado.textContent = datos.status;
+            estado.className = `badge ${datos.status}`; // verde, rojo o gris según el estado
+
+            document.getElementById('charSpecies').textContent = datos.species || '-';
+            document.getElementById('charGender').textContent = datos.gender || '-';
+            document.getElementById('charOrigin').textContent = datos.origin_name || 'Desconocido';
+            document.getElementById('charLocation').textContent = datos.location_name || 'Desconocido';
+            document.getElementById('charType').textContent = datos.type || 'Ninguno';
+            document.getElementById('charFirstEp').textContent = datos.first_episode;
+            document.getElementById('charLastEp').textContent = datos.last_episode;
+            document.getElementById('charUrl').href = datos.url;
+
+            // Actualizamos la selección únicamente cuando se cargaron los datos
+            document.querySelectorAll('.btn-personaje').forEach(b => b.classList.remove('activo'));
+            boton.classList.add('activo');
+
+        } catch (error) {
+            // No mostramos errores de peticiones que ya no corresponden a la selección actual
+            if (peticionActual !== ultimaPeticion) return;
+
+            console.error('Error al obtener el personaje:', error);
+            alert('No se pudieron cargar los datos del personaje. Intentá nuevamente.');
+        }
     }
 
     listaPersonajes.addEventListener('click', function (evento) {

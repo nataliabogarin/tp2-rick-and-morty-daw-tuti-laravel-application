@@ -36,7 +36,6 @@ class FavoriteController extends Controller
     public function store(Request $request, string $type, int $id)
     {
         // 1. Mapear el string recibido por URL a su modelo correspondiente
-        // 1. Mapear el string recibido por URL a su modelo correspondiente
         $modelMap = [
             'character' => Character::class,
             'location' => Location::class,
